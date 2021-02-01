@@ -22,9 +22,9 @@ For example:
 
 
 class xvecTDNN(nn.Module):
-    def __init__(self, n_classes, p_dropout):
+    def __init__(self, input_dim, n_classes, p_dropout):
         super(xvecTDNN, self).__init__()
-        self.tdnn1 = nn.Conv1d(in_channels=30, out_channels=512, kernel_size=5, dilation=1)
+        self.tdnn1 = nn.Conv1d(in_channels=input_dim, out_channels=512, kernel_size=5, dilation=1)
         self.bn_tdnn1 = nn.BatchNorm1d(512, momentum=0.1, affine=False)
         self.dropout_tdnn1 = nn.Dropout(p=p_dropout)
 
@@ -44,15 +44,15 @@ class xvecTDNN(nn.Module):
         self.bn_tdnn5 = nn.BatchNorm1d(1500, momentum=0.1, affine=False)
         self.dropout_tdnn5 = nn.Dropout(p=p_dropout)
 
-        self.fc1 = nn.Linear(3000,512)
+        self.fc1 = nn.Linear(3000, 512)
         self.bn_fc1 = nn.BatchNorm1d(512, momentum=0.1, affine=False)
         self.dropout_fc1 = nn.Dropout(p=p_dropout)
 
-        self.fc2 = nn.Linear(512,512)
+        self.fc2 = nn.Linear(512, 512)
         self.bn_fc2 = nn.BatchNorm1d(512, momentum=0.1, affine=False)
         self.dropout_fc2 = nn.Dropout(p=p_dropout)
 
-        self.fc3 = nn.Linear(512,n_classes)
+        self.fc3 = nn.Linear(512, n_classes)
 
     def forward(self, x, eps):
         # Note: x must be (batch_size, feat_dim, chunk_len)

@@ -9,12 +9,39 @@ Note: Functionalities are going to be implemented as needed
 import torchaudio
 
 
-def compute_fbanks_torch(file_path, **params):
-    """ :return fbank tensor containing the fbanks (Kaldi would output an identical one)"""
-    waveform, sr = torchaudio.load(file_path)
-    fbank = torchaudio.compliance.kaldi.fbank(waveform=waveform, **params)
-    return fbank
+class FbanksKaltorch(object):
+
+    def __init__(self, **params):
+        """
+        Compute fbanks of an audio signal using Kaldi in PyTorch.
+        Args:
+            **params (dictionary): Params of the fbanks.
+        """
+        self.params = params
+
+    def __call__(self, sample):
+        waveform, label = sample['wave'], sample['label']
+        params = self.params
+        fbank = torchaudio.compliance.kaldi.fbank(waveform=waveform, **params)
+        feature = {'fbanks': fbank, 'label': label}
+
+        return feature
 
 
+class MFCCTorch(object):
 
+    def __init__(self, **params):
+        """
+        Compute MFCCs of an audio signal using Kaldi in PyTorch.
+        Args:
+            **params (dictionary): Params of the fbanks.
+        """
+        self.params = params
 
+    def __call__(self, sample):
+        waveform, label = sample['wave'], sample['label']
+        params = self.params
+        fbank = torchaudio.compliance.kaldi.mfcc(waveform=waveform, **params)
+        feature = {'mfcc': fbank, 'label': label}
+
+        return feature

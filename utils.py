@@ -43,6 +43,8 @@ def load_wav(audio_filepath, sr, min_dur_sec=5):
         extended_wav = np.concatenate((audio_data, dummy[0]))
     else:
         extended_wav = audio_data
+
+    extended_wav = torch.from_numpy(extended_wav)
     return extended_wav.reshape(1, -1)  # reshaping to (channel, samples) as needed in https://pytorch.org/audio/stable/compliance.kaldi.html
 
 
@@ -51,7 +53,7 @@ def load_features_acc_file(filepath):
     Loads file containing features according to the extension of the file.
     Args:
         filepath (string): Path to the file containing the features.
-    :return object
+    :return python object containing the loaded features
     """
     filepath = filepath[0]  # from list to string
 

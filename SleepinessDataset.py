@@ -14,18 +14,19 @@ import utils
 
 class SleepinessDataset(Dataset):
 
-    def __init__(self, file_labels, audio_dir, name_set, transform=None, online=False, feats_info=None):
+    def __init__(self, file_labels, audio_dir, name_set, online=False, feats_info=None, transform=None):
         """
         Args:
             file_labels (string): Path to the csv file with the labels.
             audio_dir (string): Path to the WAV utterances.
             name_set (string): name of the dataset (train, dev, test).
-            transform (callable, optional): Optional transform to be applied on a sample.
             online (boolean, optional): if True, features are computed on the fly.
                                         if False, features are loaded from disk. Default: False
             feats_info (list[string, string], optional): Optional list with TWO elements. The first is the directory containing
                                         the files of the features, the second is the type of the file (the file ext.)
                                         that contain the features. (use only if 'online'=False). Default: None
+            transform (callable, optional): Optional transform to be applied on a sample. E.g. compute fbanks
+                                            or MFCCs of the audio signals. Use when online=True.
         :return dictionary {
         """
         if feats_info is None:
@@ -49,13 +50,13 @@ class SleepinessDataset(Dataset):
         if self.online:
             waveform = utils.load_wav(wav_path, sr=16000, min_dur_sec=4)
             sample = {
-                'waves': waveform, 'labels': class_id
+                'wave': waveform, 'label': class_id
             }
         else:
             feat_file_path = self.list_feature_files
             features = utils.load_features_acc_file(feat_file_path)
             sample = {
-                'features': features, 'labels': class_id
+                'features': features, 'label': class_id
             }
         if self.transform:
             sample = self.transform(sample)
