@@ -45,7 +45,7 @@ def load_wav(audio_filepath, sr, min_dur_sec=5):
         extended_wav = audio_data
 
     extended_wav = torch.from_numpy(extended_wav)
-    return extended_wav.reshape(1, -1)  # reshaping to (channel, samples) as needed in https://pytorch.org/audio/stable/compliance.kaldi.html
+    return extended_wav.reshape(1, -1) # reshaping to (channel, samples) as needed in https://pytorch.org/audio/stable/compliance.kaldi.html
 
 
 def load_features_acc_file(filepath):
@@ -57,7 +57,7 @@ def load_features_acc_file(filepath):
     """
     filepath = filepath[0]  # from list to string
 
-    extension = os.path.splitext(filepath)[1] # getting the basename of the file
+    extension = os.path.splitext(filepath)[1]  # getting the basename of the file
     if extension in ['.mfcc', '.fbanks', '.spec']:  # getting the ext. and loading
         feats = np.load(filepath, allow_pickle=True)
     elif extension in ['.pt', '.pth']:
@@ -78,7 +78,7 @@ def load_labels(filepath, name_set):
                                         train_0001.wav,7
     Args:
         filepath (string): Path to the file containing the features.
-        _set (string): Set of the labels (train, dev, test)
+        name_set (string): Set of the labels (train, dev, test)
     :return object
     """
 

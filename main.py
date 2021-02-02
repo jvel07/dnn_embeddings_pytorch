@@ -19,13 +19,13 @@ import numpy as np
 import dnn_models
 import get_feats
 import train_utils
-from SleepinessDataset import SleepinessDataset
+from CustomDataset import CustomDataset
 
 # task (name of the dataset)
 task = 'sleepiness'
 # in and out dirs
 corpora_dir = '/media/jose/hk-data/PycharmProjects/the_speech/audio/'
-out_dir = 'data/'
+out_dir = 'data/' + task
 task_audio_dir = corpora_dir + task + '/'
 # labels
 labels = 'data/sleepiness/labels/labels.csv'
@@ -42,38 +42,37 @@ labels = 'data/sleepiness/labels/labels.csv'
 
 
 params = {
-    "num_mel_bins": 40
+    # "num_mel_bins": 40
 }
 
-# params
+# Get model params
 parser = train_utils.getParams()
 args = parser.parse_args()
-totalSteps = args.numEpochs
 
 # Loading the data
-# train_set = SleepinessDataset(file_labels=labels, audio_dir=task_audio_dir, name_set='train', online=True)
-train_set = SleepinessDataset(file_labels='data/sleepiness/labels/labels.csv', audio_dir=task_audio_dir,
-                              name_set='train', online=True,
-                              # feats_info=['/media/jose/hk-data/PycharmProjects/the_speech/data/sleepiness/', 'mfcc'],
-                              transform=get_feats.FbanksKaltorch(**params)
-                              )
+# train_set = CustomDataset(file_labels=labels, audio_dir=task_audio_dir, name_set='train', online=True)
+train_set = CustomDataset(file_labels='data/sleepiness/labels/labels.csv', audio_dir=task_audio_dir,
+                          name_set='train', online=True,
+                          # feats_info=['/media/jose/hk-data/PycharmProjects/the_speech/data/sleepiness/', 'mfcc'],
+                          calc_flevel=get_feats.FLevelFeatsTorch(save=True, out_dir=out_dir, feat_type='spec', **params)
+                          )
 train_loader = DataLoader(dataset=train_set, batch_size=args.batchSize, shuffle=False, num_workers=0)
 
-# dev_set = SleepinessDataset(file_labels='data/sleepiness/labels/labels.csv', audio_dir=task_audio_dir, name_set='dev',
+# dev_set = CustomDataset(file_labels='data/sleepiness/labels/labels.csv', audio_dir=task_audio_dir, name_set='dev',
 #                               online=False,
 #                               feats_info=['/media/jose/hk-data/PycharmProjects/the_speech/data/sleepiness/', 'mfcc'],
-#                               #         transform=get_feats.FbanksKaltorch(**params)
+#                               #         calc_flevel=get_feats.FbanksKaltorch(**params)
 #                               )
 # dev_loader = DataLoader(dataset=train_set, batch_size=args.batchSize, shuffle=False, num_workers=0)
 #
-# test_set = SleepinessDataset(file_labels='data/sleepiness/labels/labels.csv', audio_dir=task_audio_dir, name_set='test',
+# test_set = CustomDataset(file_labels='data/sleepiness/labels/labels.csv', audio_dir=task_audio_dir, name_set='test',
 #                               online=False,
 #                               feats_info=['/media/jose/hk-data/PycharmProjects/the_speech/data/sleepiness/', 'mfcc'],
-#                               #         transform=get_feats.FbanksKaltorch(**params)
+#                               #         calc_flevel=get_feats.FbanksKaltorch(**params)
 #                               )
 # test_loader = DataLoader(dataset=train_set, batch_size=args.batchSize, shuffle=False, num_workers=0)
 
-# Prepare the model
+# Set the GPU, prepare the model
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 net, optimizer, step, saveDir = train_utils.prepare_model(args)
 criterion = nn.CrossEntropyLoss()
@@ -84,12 +83,32 @@ cyclic_lr_scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer,
                                                           cycle_momentum=False,
                                                           div_factor=5,
                                                           final_div_factor=1e+3,
-                                                          total_steps=totalSteps,
+                                                          total_steps=args.numEpochs,
                                                           pct_start=0.15)
 
-# train model
-# net.train()
-for batch_idx, (X, Y) in enumerate(train_loader):
-    x_train = X.to(device)
-    y_train = Y.to(device)
-# optimizer.zero_grad()
+# Train model
+for args.numEpochs in range(args.numEpochs):
+    loggingLoss = 0.0
+    start_time = time.time()
+    # net.train()
+    for batch_idx, (X, Y) in enumerate(train_loader):
+        x_train = X.to(device)
+        y_train = Y.to(device)
+        # zeroing the gradients
+        optimizer.zero_grad()
+        # forward prop + backward prop + optimization
+        output = net(X)
+        loss = criterion(output, y_train)
+        if np.isnan(loss.item()):  # checking for exploding gradient
+            print('Nan encountered at iter %d. Exiting..' % iter)
+            sys.exit(1)
+        loss.backward()
+        # stats
+        loggingLoss += loss.item()
+        optimizer.step()  # updating weights
+        cyclic_lr_scheduler.step()
+
+        if batch_idx % 300 == 299:
+            logTime = time.time() - start_time
+            print('Batch: %d    Avg time/batch: %1.3f   Avg loss/batch: %1.3f' %(
+                batch_idx, logTime/batch_idx, loggingLoss/300))
