@@ -4,6 +4,8 @@ on 2021. 01. 27. 11 57
 
 File intended for common utils like load file paths, etc.
 """
+import random
+
 import librosa
 import os
 import numpy as np
@@ -11,6 +13,7 @@ import pandas as pd
 
 # Traverse directories and pull specific type of file (".WAV", etc...)
 import torch
+import torchaudio
 
 
 def get_files_abspaths(path, file_type=None):
@@ -46,6 +49,25 @@ def load_wav(audio_filepath, sr, min_dur_sec=5):
 
     extended_wav = torch.from_numpy(extended_wav)
     return extended_wav.reshape(1, -1) # reshaping to (channel, samples) as needed in https://pytorch.org/audio/stable/compliance.kaldi.html
+
+
+def load_wav_torch(audio_filepath, max_length_in_seconds, pad_and_truncate):
+    audio_tensor, sample_rate = torchaudio.load(audio_filepath, normalization=True)
+    max_length = sample_rate * max_length_in_seconds
+    audio_size = audio_tensor.size()
+
+    if pad_and_truncate:
+        if audio_size[1] < max_length:
+            difference = max_length - audio_size[1]
+            padding = torch.zeros(audio_size[0], difference)
+            padded_audio = torch.cat([audio_tensor, padding], 1)
+            return padded_audio
+
+        if audio_size[1] > max_length:
+            random_idx = random.randint(0, audio_size[1] - max_length)
+            return audio_tensor.narrow(1, random_idx, max_length)
+
+    return audio_tensor
 
 
 def load_features_acc_file(filepath):
@@ -88,5 +110,19 @@ def load_labels(filepath, name_set):
 
     return labels
 
+
+def save_features(out_dir, feat_type, wav_file, features):
+    """
+    Saves the features as numpy arrays to disk. Intended for get_feats.FLevelFeatsTorch().
+    Args:
+        out_dir (string): Output dir.
+        feat_type (string): Type of the feature to be saved. E.g.: 'mfcc', 'fbanks', 'spec'
+        wav_file: Name of the wav file.
+        features: Torch
+    """
+    if not os.path.exists(out_dir):
+        os.makedirs(out_dir)
+    np.save(out_dir + '/{0}_{1}'.format(feat_type, wav_file), features.numpy())
+    # print("{0} features saved to {1}".format(feat_type, out_dir))
 
 

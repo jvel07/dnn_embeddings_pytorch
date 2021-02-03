@@ -42,7 +42,7 @@ labels = 'data/sleepiness/labels/labels.csv'
 
 
 params = {
-    # "num_mel_bins": 40
+    "num_mel_bins": 40
 }
 
 # Get model params
@@ -54,7 +54,8 @@ args = parser.parse_args()
 train_set = CustomDataset(file_labels='data/sleepiness/labels/labels.csv', audio_dir=task_audio_dir,
                           name_set='train', online=True,
                           # feats_info=['/media/jose/hk-data/PycharmProjects/the_speech/data/sleepiness/', 'mfcc'],
-                          calc_flevel=get_feats.FLevelFeatsTorch(save=True, out_dir=out_dir, feat_type='spec', **params)
+                          calc_flevel=get_feats.FLevelFeatsTorch(save=True, out_dir=out_dir, feat_type='mfcc',
+                                                                 deltas=1, **params)
                           )
 train_loader = DataLoader(dataset=train_set, batch_size=args.batchSize, shuffle=False, num_workers=0)
 
@@ -91,13 +92,13 @@ for args.numEpochs in range(args.numEpochs):
     loggingLoss = 0.0
     start_time = time.time()
     # net.train()
-    for batch_idx, (X, Y) in enumerate(train_loader):
-        x_train = X.to(device)
-        y_train = Y.to(device)
+    for batch_idx, sample_batched in enumerate(train_loader):
+        x_train = sample_batched['feature'].to(device)
+        y_train = sample_batched['label'].to(device)
         # zeroing the gradients
         optimizer.zero_grad()
         # forward prop + backward prop + optimization
-        output = net(X)
+        output = net(x_train, args.numEpochs)
         loss = criterion(output, y_train)
         if np.isnan(loss.item()):  # checking for exploding gradient
             print('Nan encountered at iter %d. Exiting..' % iter)

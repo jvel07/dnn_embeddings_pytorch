@@ -51,10 +51,10 @@ class CustomDataset(Dataset):
         wav_name = os.path.basename(os.path.splitext(wav_file)[0])
 
         if self.online:
-            waveform = utils.load_wav(wav_file, sr=16000, min_dur_sec=4)
+            # waveform = utils.load_wav(wav_file, sr=16000, min_dur_sec=4)
+            waveform = utils.load_wav_torch(wav_file, max_length_in_seconds=4, pad_and_truncate=True)
             sample = {
-                'wave': waveform, 'label': class_id,
-                'wav_file': wav_name
+                'wave': waveform, 'label': class_id, 'wav_file': wav_name
             }
         else:
             feat_file_path = self.list_feature_files
