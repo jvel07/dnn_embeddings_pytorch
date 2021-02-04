@@ -57,7 +57,7 @@ def prepare_model(args):
 
         print('Initializing Model...')
         step = 0
-        net = eval('dnn_models.{0}({1}, {2}, p_dropout=0)'.format(args.modelType, args.featDim, args.nClasses))
+        net = eval('dnn_models.{0}({1}, {2}, p_dropout=0)'.format(args.modelType, args.input_dim, args.num_classes))
         print(net)
         optimizer = torch.optim.Adam(net.parameters(), lr=args.baseLR)
 
@@ -77,7 +77,7 @@ def getParams():
 
     # General Parameters
     parser.add_argument('-modelType', default='xvecTDNN', help='Model class. Check models.py')
-    parser.add_argument('-featDim', default=40, type=int, help='Frame-level feature dimension')
+    parser.add_argument('-input_dim', default=26, type=int, help='Frame-level feature dimension')
     parser.add_argument('-trainingMode', default='init',
         help='(init) Train from scratch, (resume) Resume training, (finetune) Finetune a pretrained model')
     parser.add_argument('-resumeModelDir', default=None, help='Path containing training checkpoints')
@@ -85,12 +85,13 @@ def getParams():
 
     # Training Parameters - no more trainFullXvector = 0
     trainingArgs = parser.add_argument_group('General Training Parameters')
-    trainingArgs.add_argument('-nClasses', default=10, type=int, help='Number of classes')
+    trainingArgs.add_argument('-numArchives', default=1, type=int, help='Number of egs.*.ark files')
+    trainingArgs.add_argument('-num_classes', default=10, type=int, help='Number of classes')
     # trainingArgs.add_argument('-numSpkrs', default=7323, type=int, help='Number of output labels')
-    trainingArgs.add_argument('-logStepSize', default=200, type=int, help='Iterations per log')
-    trainingArgs.add_argument('-batchSize', default=32, type=int, help='Batch size')
-    # trainingArgs.add_argument('-numEgsPerArk', default=366150, type=int,
-    #     help='Number of training examples per egs file')
+    trainingArgs.add_argument('-logStepSize', default=16, type=int, help='Iterations per log')
+    trainingArgs.add_argument('-batchSize', default=64, type=int, help='Batch size')
+    trainingArgs.add_argument('-numEgsPerFile', default=1, type=int,
+        help='Number of training examples per egs file')
 
     # Optimization Params
     optArgs = parser.add_argument_group('Optimization Parameters')
@@ -98,7 +99,7 @@ def getParams():
     optArgs.add_argument('-optimMomentum', default=0.5, type=float, help='Optimizer momentum')
     optArgs.add_argument('-baseLR', default=1e-3, type=float, help='Initial LR')
     optArgs.add_argument('-maxLR', default=2e-3, type=float, help='Maximum LR')
-    optArgs.add_argument('-numEpochs', default=2, type=int, help='Number of training epochs')
+    optArgs.add_argument('-numEpochs', default=12, type=int, help='Number of training epochs')
     optArgs.add_argument('-noiseEps', default=1e-5, type=float, help='Noise strength before pooling')
     optArgs.add_argument('-pDropMax', default=0.2, type=float, help='Maximum dropout probability')
     optArgs.add_argument('-stepFrac', default=0.5, type=float,

@@ -37,12 +37,12 @@ class FLevelFeatsTorch(object):
         """
         Compute frame-level features of an audio signal using Kaldi-PyTorch and PyTorch.
         Args:
-            save (boolean): Boolean, if the features have to be saved to disk set it to True;
-                            False otherwise.
-            out_dir (string): Destination dir of the features, use when 'save=True'.
+            save (boolean, optional): Boolean, if the features have to be saved to disk set it to True;
+                            False otherwise. Default: None.
+            out_dir (string, optional): Destination dir of the features, use when 'save=True'. Default: None.
             feat_type (string): Type of the frame-level feature to extract from the utterances.
                                 Choose from: 'mfcc', 'fbanks', 'melspec'. Default is: 'fbanks'.
-            deltas (int): Compute delta coefficients of a tensor. '1' for first order derivative, '2' for second order.
+            deltas (int, optional): Compute delta coefficients of a tensor. '1' for first order derivative, '2' for second order.
                           None for not using deltas. Default: None.
             **params (dictionary): Params of the fbanks.
         """
@@ -78,7 +78,7 @@ class FLevelFeatsTorch(object):
             feature = {'feature': feat, 'label': label}
             # Save features if asked for
             if save:
-                utils.save_features(out_dir, self.feat_type, wav_file, feat)
+                utils.save_features(out_dir, self.feat_type, '{0}_{1}del'.format(wav_file, deltas), feat)
             return feature
         if deltas == 2:
             # Compute features
@@ -89,7 +89,7 @@ class FLevelFeatsTorch(object):
             feature = {'feature': feat, 'label': label}
             # Save features if asked for
             if save:
-                utils.save_features(out_dir, self.feat_type, wav_file, feat)
+                utils.save_features(out_dir, self.feat_type, '{0}_{1}del'.format(wav_file, deltas), feat)
             return feature
 
 
