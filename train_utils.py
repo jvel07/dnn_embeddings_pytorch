@@ -15,7 +15,7 @@ import dnn_models
 import torch
 
 
-def extract_xVecs(in_feats, out_file, net, layerName):
+def extract_xvecs(in_feats, out_file, net, layerName):
     """ Function to extract the x-vector embeddings from the specified layer.
     Args:
         in_feats (tensor, np array): The input features.
@@ -65,6 +65,7 @@ def prepare_model(args):
         eventID = datetime.now().strftime('%Y%m-%d%H-%M%S')
         saveDir = './models/modelType_{}_event_{}'.format(args.modelType, eventID)
         os.makedirs(saveDir)
+        print("Model saved in {}".format(saveDir))
 
         return net, optimizer, step, saveDir
 

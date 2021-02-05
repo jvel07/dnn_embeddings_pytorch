@@ -38,7 +38,7 @@ class CustomDataset(Dataset):
 
         self.labels = utils.load_labels(file_labels, name_set)
         self.list_wavs = utils.get_files_abspaths(path=audio_dir + name_set, file_type='.wav')
-        self._set = name_set
+        self.name_set = name_set
         self.calc_flevel = calc_flevel
         self.online = online
 
@@ -49,12 +49,13 @@ class CustomDataset(Dataset):
         wav_file = self.list_wavs[idx]
         class_id = self.labels[idx]
         wav_name = os.path.basename(os.path.splitext(wav_file)[0])
+        name_set = self.name_set
 
         if self.online:
             # waveform = utils.load_wav(wav_file, sr=16000, min_dur_sec=4)
-            waveform = utils.load_wav_torch(wav_file, max_length_in_seconds=4, pad_and_truncate=True)
+            waveform = utils.load_wav_torch(wav_file, max_length_in_seconds=5, pad_and_truncate=True)
             sample = {
-                'wave': waveform, 'label': class_id, 'wav_file': wav_name
+                'wave': waveform, 'label': class_id#, 'wav_file': wav_name
             }
         else:
             feat_file_path = self.list_feature_files
@@ -63,7 +64,7 @@ class CustomDataset(Dataset):
                 'features': features, 'label': class_id
             }
         if self.calc_flevel:
-            sample = self.calc_flevel(sample, wav_name)
+            sample = self.calc_flevel(sample, wav_name, name_set)
 
         return sample
 

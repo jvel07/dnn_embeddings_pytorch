@@ -4,12 +4,14 @@ on 2021. 01. 27. 11 57
 
 File intended for common utils like load file paths, etc.
 """
+import configparser
 import random
 
 import librosa
 import os
 import numpy as np
 import pandas as pd
+from shutil import copyfile
 
 # Traverse directories and pull specific type of file (".WAV", etc...)
 import torch
@@ -93,6 +95,19 @@ def load_features_acc_file(filepath):
     return feats
 
 
+# def load_one_feat_file(file_path):
+
+def read_conf_file(file_name, conf_section):
+    dict_section_values = {}
+    config = configparser.ConfigParser(delimiters='=', inline_comment_prefixes='#')
+    config.read('conf/{}'.format(file_name))
+    for param in config.options(conf_section):
+        value = eval(config.get(conf_section, param))
+        dict_section_values[param] = value
+
+    return dict_section_values
+
+
 def load_labels(filepath, name_set):
     """
     Loads labels from a file of containing the form, e.g.:
@@ -117,12 +132,17 @@ def save_features(out_dir, feat_type, wav_file, features):
     Args:
         out_dir (string): Output dir.
         feat_type (string): Type of the feature to be saved. E.g.: 'mfcc', 'fbanks', 'spec'
-        wav_file: Name of the wav file.
-        features: Torch
+        wav_file (string): Name of the wav file.
+        features (Torch): Torch
     """
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
     np.save(out_dir + '/{0}_{1}'.format(feat_type, wav_file), features.numpy())
-    # print("{0} features saved to {1}".format(feat_type, out_dir))
 
+
+def copy_conf(out_dir, feat_type):
+    conf_file_bk_path = '{0}/conf/'.format(out_dir)
+    if not os.path.exists(conf_file_bk_path):
+        os.makedirs(conf_file_bk_path)
+    copyfile('conf/{}.ini'.format(feat_type), '{0}/{1}.ini'.format(conf_file_bk_path, feat_type))
 

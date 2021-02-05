@@ -4,6 +4,7 @@ on 2021. 02. 04. 13 10
 
 """
 import argparse
+import copy
 import sys
 import time
 
@@ -18,6 +19,7 @@ import numpy as np
 import dnn_models
 import get_feats
 import train_utils
+import utils
 from CustomDataset import CustomDataset
 
 # task (name of the dataset)
@@ -30,19 +32,7 @@ task_audio_dir = corpora_dir + task + '/'
 labels = 'data/sleepiness/labels/labels.csv'
 
 # frame-level feats params
-# params = {
-#     sample-frequency : 16000,
-#     frame-length: 25, # the default is 25
-#     low-freq: 20, # the default.
-#     high-freq: 0, # the default is zero meaning use the Nyquist (4k in this case).
-#     num-ceps: 20, # higher than the default which is 12.
-#     snip-edges: "false"
-# }
-
-
-params = {
-    "num_mel_bins": 40
-}
+params = utils.read_conf_file(file_name='mfcc.ini', conf_section='DEFAULT-XVEC')
 
 # Get model params
 parser = argparse.ArgumentParser(add_help=False)
@@ -50,10 +40,10 @@ parser.add_argument('-training_filepath', type=str, default='meta/training_feat.
 parser.add_argument('-testing_filepath', type=str, default='meta/testing_feat.txt')
 parser.add_argument('-validation_filepath', type=str, default='meta/validation_feat.txt')
 
-parser.add_argument('-input_dim', action="store_true", default=26)
+parser.add_argument('-input_dim', action="store_true", default=46)
 parser.add_argument('-num_classes', action="store_true", default=10)
 parser.add_argument('-lamda_val', action="store_true", default=0.1)
-parser.add_argument('-batch_size', action="store_true", default=64)
+parser.add_argument('-batch_size', action="store_true", default=128)
 parser.add_argument('-use_gpu', action="store_true", default=True)
 parser.add_argument('-num_epochs', action="store_true", default=100)
 
@@ -112,6 +102,11 @@ exp_lr_scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer,
 
 # Train model
 def train_model(data_loader, num_epochs):
+    since = time.time()
+
+    best_model_wts = copy.deepcopy(net.state_dict())
+    best_loss = 0.0
+
     for epoch in range(num_epochs):
         print('Epoch {}/{}'.format(epoch, num_epochs - 1))
         print('-' * 10)
@@ -136,6 +131,26 @@ def train_model(data_loader, num_epochs):
 
         print('Loss: {:.4f}'.format(epoch_loss))
 
+        if epoch_loss < best_loss:
+            best_loss = epoch_loss
+            best_model_wts = copy.deepcopy(net.state_dict())
+            # Save checkpoint
+            torch.save({
+                'step': step,
+                'model_state_dict': net.state_dict(),
+                'optimizer_state_dict': optimizer.state_dict(),
+                'args': args,
+            }, '{}/checkpoint_step{}.tar'.format(saveDir, step))
+
+    time_elapsed = time.time() - since
+    print('Training complete in {:.0f}m {:.0f}s'.format(
+        time_elapsed // 60, time_elapsed % 60))
+    print('Best val Acc: {:4f}'.format(best_loss))
+
+    # load best model weights
+    net.load_state_dict(best_model_wts)
+    return net
+
 
 if __name__ == '__main__':
-    train_model(data_loader=train_loader, num_epochs=10)
+    train_model(data_loader=train_loader, num_epochs=50)
