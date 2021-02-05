@@ -74,12 +74,12 @@ def load_wav_torch(audio_filepath, max_length_in_seconds, pad_and_truncate):
 
 def load_features_acc_file(filepath):
     """
-    Loads file containing features according to the extension of the file.
+    Loads features contained in a file according to the extension of it.
     Args:
         filepath (string): Path to the file containing the features.
     :return python object containing the loaded features
     """
-    filepath = filepath[0]  # from list to string
+    # filepath = filepath[0]  # from list to string
 
     extension = os.path.splitext(filepath)[1]  # getting the basename of the file
     if extension in ['.mfcc', '.fbanks', '.spec']:  # getting the ext. and loading
@@ -95,7 +95,6 @@ def load_features_acc_file(filepath):
     return feats
 
 
-# def load_one_feat_file(file_path):
 
 def read_conf_file(file_name, conf_section):
     dict_section_values = {}

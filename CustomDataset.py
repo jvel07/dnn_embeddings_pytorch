@@ -17,7 +17,7 @@ import utils
 class CustomDataset(Dataset):
 
     def __init__(self, file_labels, audio_dir, name_set, online=False, feats_info=None, calc_flevel=None):
-        """
+        """ Class to load a custom Dataset. Can be used as an input for the DataLoader.
         Args:
             file_labels (string): Path to the csv file with the labels.
             audio_dir (string): Path to the WAV utterances.
@@ -27,6 +27,7 @@ class CustomDataset(Dataset):
             feats_info (list, optional): Optional list with TWO elements. The first is the directory containing
                                         the files of the features, the second is the type of the file (the file ext.)
                                         that contain the features. (use only if 'online'=False). Default: None
+                                        E.g.: feats_info=['path/to/folder/', 'mfcc']
             calc_flevel (callable, optional): Optional calculation to be applied on a sample. E.g. compute fbanks
                                             or MFCCs of the audio signals. Use when online=True.
         :return dictionary {
@@ -34,7 +35,8 @@ class CustomDataset(Dataset):
         if feats_info is None:
             feats_info = []
         else:
-            self.list_feature_files = utils.get_files_abspaths(path=feats_info[0] + name_set, file_type=feats_info[1])
+            self.list_feature_files = utils.get_files_abspaths(path=feats_info[0] + name_set,
+                                                               file_type=feats_info[1])
 
         self.labels = utils.load_labels(file_labels, name_set)
         self.list_wavs = utils.get_files_abspaths(path=audio_dir + name_set, file_type='.wav')
@@ -48,7 +50,7 @@ class CustomDataset(Dataset):
     def __getitem__(self, idx):
         wav_file = self.list_wavs[idx]
         class_id = self.labels[idx]
-        wav_name = os.path.basename(os.path.splitext(wav_file)[0])
+        wav_name = os.path.basename(os.path.splitext(wav_file)[0])  # getting the basename of the wav
         name_set = self.name_set
 
         if self.online:
@@ -58,12 +60,12 @@ class CustomDataset(Dataset):
                 'wave': waveform, 'label': class_id#, 'wav_file': wav_name
             }
         else:
-            feat_file_path = self.list_feature_files
-            features = utils.load_features_acc_file(feat_file_path)
+            feat_file_path = self.list_feature_files[idx]
+            features = np.load(feat_file_path)
             sample = {
-                'features': features, 'label': class_id
+                'feature': features, 'label': class_id
             }
-        if self.calc_flevel:
+        if self.online and self.calc_flevel:
             sample = self.calc_flevel(sample, wav_name, name_set)
 
         return sample

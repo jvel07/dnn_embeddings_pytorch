@@ -35,7 +35,8 @@ class FLevelFeatsTorch(object):
 
     def __init__(self, save=None, out_dir=None, feat_type='fbanks', deltas=None, **params):
         """
-        Compute frame-level features of an audio signal using Kaldi-PyTorch and PyTorch.
+        Compute frame-level features of an audio signal using Kaldi-PyTorch and PyTorch on the fly
+        and OPTIONALLY save them. Note: This class is intended to be used at training time in the DataLoader.
         Args:
             save (boolean, optional): Boolean, if the features have to be saved to disk set it to True;
                             False otherwise. Default: None.
@@ -97,35 +98,3 @@ class FLevelFeatsTorch(object):
                 utils.copy_conf(out_dir, self.feat_type)
             feature = {'feature': feat, 'label': label}
             return feature
-
-
-class MelSpecTorch(object):
-
-    def __init__(self, save=None, out_dir=None, **params):
-        """
-        Compute mel-spectrograms of an audio signal using torchaudio.transforms
-        Args:
-            save (boolean): Boolean, if the features have to be saved to disk set it to True;
-                            False otherwise.
-            out_dir (string): Destination dir of the features, use when 'save=True'.
-            **params (dictionary): Params of the fbanks.
-        """
-        self.params = params
-        self.save = save
-        self.out_dir = out_dir
-
-    def __call__(self, sample, wav_file):
-        waveform, label, wav_file = sample['wave'], sample['label'], sample['wav_file']
-        save = self.save
-        out_dir = self.out_dir + '/mfcc/'
-        params = self.params
-        # Compute features
-        fbank = torchaudio.compliance.kaldi.fbank(waveform=waveform, **params)
-        # Save features
-        if save:
-            if not os.path.exists(out_dir):
-                os.makedirs(out_dir)
-            np.save(out_dir + '/mfcc_{}'.format(wav_file), fbank.numpy())
-        feature = {'fbanks': fbank, 'label': label}
-
-        return feature

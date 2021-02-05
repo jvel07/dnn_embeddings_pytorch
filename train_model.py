@@ -31,11 +31,15 @@ task_audio_dir = corpora_dir + task + '/'
 # labels
 labels = 'data/sleepiness/labels/labels.csv'
 
-# frame-level feats params
+# frame-level feats params/config
 params = utils.read_conf_file(file_name='mfcc.ini', conf_section='DEFAULT-XVEC')
 
 # Get model params
 parser = argparse.ArgumentParser(add_help=False)
+parser.add_argument('-feat_type', type=str, default='mfcc', help="Type of the frame-level features to load or "
+                                                                   "extract. Available types: mfcc, fbanks, spec, "
+                                                                   "melspecT")
+
 parser.add_argument('-training_filepath', type=str, default='meta/training_feat.txt')
 parser.add_argument('-testing_filepath', type=str, default='meta/testing_feat.txt')
 parser.add_argument('-validation_filepath', type=str, default='meta/validation_feat.txt')
@@ -58,14 +62,13 @@ args = parser.parse_args()
 # Loading the data
 # train_set = CustomDataset(file_labels=labels, audio_dir=task_audio_dir, name_set='train', online=True)
 train_set = CustomDataset(file_labels='data/sleepiness/labels/labels.csv', audio_dir=task_audio_dir,
-                          name_set='train', online=True,
-                          # feats_info=['/media/jose/hk-data/PycharmProjects/the_speech/data/sleepiness/', 'mfcc'],
+                          name_set='train', online=False,
+                          feats_info=['data/sleepiness/{}/'.format(args.feat_type), '.npy'],
                           calc_flevel=get_feats.FLevelFeatsTorch(save=True, out_dir=out_dir, feat_type='mfcc',
                                                                  deltas=1, **params)
                           )
 train_loader = DataLoader(dataset=train_set, batch_size=args.batch_size, shuffle=False,
-                          num_workers=0,
-                          drop_last=False)
+                          num_workers=0, drop_last=False)
 
 # dev_set = CustomDataset(file_labels='data/sleepiness/labels/labels.csv', audio_dir=task_audio_dir, name_set='dev',
 #                               online=False,
