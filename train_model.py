@@ -37,8 +37,8 @@ params = utils.read_conf_file(file_name='mfcc.ini', conf_section='DEFAULT-XVEC')
 # Get model params
 parser = argparse.ArgumentParser(add_help=False)
 parser.add_argument('-feat_type', type=str, default='mfcc', help="Type of the frame-level features to load or "
-                                                                   "extract. Available types: mfcc, fbanks, spec, "
-                                                                   "melspecT")
+                                                                 "extract. Available types: mfcc, fbanks, spec, "
+                                                                 "melspecT")
 
 parser.add_argument('-training_filepath', type=str, default='meta/training_feat.txt')
 parser.add_argument('-testing_filepath', type=str, default='meta/testing_feat.txt')
@@ -95,7 +95,8 @@ exp_lr_scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer,
                                                        cycle_momentum=False,
                                                        div_factor=5,
                                                        final_div_factor=1e+3,
-                                                       total_steps=args.num_epochs * len(train_loader),  # * numBatchesPerArk,
+                                                       total_steps=args.num_epochs * len(train_loader),
+                                                       # * numBatchesPerArk,
                                                        pct_start=0.15)
 
 

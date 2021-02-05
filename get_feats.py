@@ -65,7 +65,7 @@ class FLevelFeatsTorch(object):
             # Compute features
             feat = execute_extraction_function(feat_type=self.feat_type, waveform=waveform, **params)
             # Save features if asked for
-            out_dir = out_dir + '/{0}/{1}/{2}/'.format(self.feat_type, name_set, feat.shape[1])
+            out_dir = out_dir + '/{0}/{1}/'.format(self.feat_type, name_set)
             if save:
                 utils.save_features(out_dir, self.feat_type, wav_file, feat)
                 utils.copy_conf(out_dir, self.feat_type)
@@ -79,7 +79,7 @@ class FLevelFeatsTorch(object):
             delta1 = torchaudio.functional.compute_deltas(feat)  # compute 1st order
             feat = torch.cat((feat, delta1), 1)
             # Save features if asked for
-            out_dir = out_dir + '/{0}/{1}/{2}/'.format(self.feat_type, name_set, feat.shape[1])
+            out_dir = out_dir + '/{0}/{1}/'.format(self.feat_type, name_set)
             if save:
                 utils.save_features(out_dir, self.feat_type, '{0}_{1}del'.format(wav_file, deltas), feat)
                 utils.copy_conf(out_dir, self.feat_type)
@@ -92,9 +92,59 @@ class FLevelFeatsTorch(object):
             delta2 = torchaudio.functional.compute_deltas(delta1)
             feat = torch.cat((feat, delta1, delta2), 1)
             # Save features if asked for
-            out_dir = out_dir + '/{0}/{1}/{2}/'.format(self.feat_type, name_set, feat.shape[1])
+            out_dir = out_dir + '/{0}/{1}/'.format(self.feat_type, name_set)
             if save:
                 utils.save_features(out_dir, self.feat_type, '{0}_{1}del'.format(wav_file, deltas), feat)
                 utils.copy_conf(out_dir, self.feat_type)
             feature = {'feature': feat, 'label': label}
             return feature
+
+
+def compute_feats_offline(source_path, name_set, out_dir, feat_type, deltas=None):
+    """Function to calculate the frame-level features and save them into files.
+    The function saves one file (containing features) per utterance
+    Args:
+        source_path (string): Path to the wavs.
+        name_set (string, optional): Name of the subfolder. E.g.: train, dev, test.
+        out_dir (string): Type of the frame-level feature to extract from the utterances.
+                          Choose from: 'mfcc', 'fbanks', 'melspec'. Default is: 'fbanks'.
+        feat_type (string): Type of the frame-level feature to extract from the utterances.
+                            Choose from: 'mfcc', 'fbanks', 'melspec'. Default is: 'fbanks'.
+        deltas (int, optional): Compute delta coefficients of a tensor. '1' for first order derivative, '2' for second order.
+                                None for not using deltas. Default: None.
+    """
+    list_wavs = utils.get_files_abspaths(path=source_path + name_set, file_type='.wav')
+    # frame-level feats params/config from the config file
+    params = utils.read_conf_file(file_name='{}.ini'.format(feat_type), conf_section='DEFAULT')
+
+    for wav_file in list_wavs:
+        # Load wav
+        waveform = utils.load_wav_torch(wav_file, max_length_in_seconds=5, pad_and_truncate=True)
+
+        # Compute without derivatives
+        if deltas is None:
+            # Compute features
+            feat = execute_extraction_function(feat_type=feat_type, waveform=waveform, **params)
+            out_dir = out_dir + '/{0}/{1}/'.format(feat_type, name_set)
+            utils.save_features(out_dir, feat_type, wav_file, feat)
+            utils.copy_conf(out_dir, feat_type)
+
+        # Compute derivatives if asked for
+        if deltas == 1:
+            # Compute features
+            feat = execute_extraction_function(feat_type=feat_type, waveform=waveform, **params)
+            delta1 = torchaudio.functional.compute_deltas(feat)  # compute 1st order
+            feat = torch.cat((feat, delta1), 1)
+            out_dir = out_dir + '/{0}/{1}/'.format(feat_type, name_set)
+            utils.save_features(out_dir, feat_type, wav_file, feat)
+            utils.copy_conf(out_dir, feat_type)
+
+        if deltas == 2:
+            # Compute features
+            feat = execute_extraction_function(feat_type=feat_type, waveform=waveform, **params)
+            delta1 = torchaudio.functional.compute_deltas(feat)  # compute 1st order
+            delta2 = torchaudio.functional.compute_deltas(delta1)
+            feat = torch.cat((feat, delta1, delta2), 1)
+            out_dir = out_dir + '/{0}/{1}/'.format(feat_type, name_set)
+            utils.save_features(out_dir, feat_type, wav_file, feat)
+            utils.copy_conf(out_dir, feat_type)
