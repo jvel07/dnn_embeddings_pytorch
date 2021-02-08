@@ -9,7 +9,7 @@ The required libraries are:
 - numpy
 - pandas
 
-The pipeline of the project is designed in a simple and straightforward manner. Just few steps and you can have frame-level features fed into a DNN to train it. The DNN stucture is based on the above mentioned [paper](https://www.danielpovey.com/files/2018_icassp_xvectors.pdf), which extract the so-called x-vectors embeddings from the utterances. 
+The pipeline of the project is designed in a simple and straightforward manner. Just few steps and you can have frame-level features fed into a DNN to train it. The DNN structure is based on the above mentioned [paper](https://www.danielpovey.com/files/2018_icassp_xvectors.pdf). The network is utilized to extract the so-called x-vectors embeddings from the utterances. 
 
 *NOTE: Here, apart from getting x-vector embeddings, we will also attempt to get different type of **DNN embeddings** by experimenting with Transformers, and CNNs as well.*
 
