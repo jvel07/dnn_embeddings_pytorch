@@ -9,6 +9,12 @@ The required libraries are:
 - numpy
 - pandas
 
+The pipeline of the project is designed in a simple and straightforward manner. Just few steps and you can have frame-level features fed into a DNN to train it. The DNN stucture is based on the above mentioned [paper](https://www.danielpovey.com/files/2018_icassp_xvectors.pdf), which extract the so-called x-vectors embeddings from the utterances. 
+
+*NOTE: Here, apart from getting x-vector embeddings, we will also attempt to get different type of embeddings by experimenting with Transformers, and CNNs as well.*
+
+Let's export the libraries we will need:
+
 ```
 import torch
 import torch.nn as nn
@@ -20,8 +26,7 @@ import get_feats
 from CustomDataset import CustomDataset
 ```
 
-The pipeline of the project is designed in a simple and straightforward manner. Just few steps and you can have frame-level features fed into a DNN to train.
-First let's load the dataset, you would only need to do the following:
+Now let's load the dataset, you would only need to do the following:
 
 ```
 train_set = CustomDataset(file_labels='data/sleepiness/labels/labels.csv', audio_dir=task_audio_dir, 
@@ -29,6 +34,7 @@ train_set = CustomDataset(file_labels='data/sleepiness/labels/labels.csv', audio
                           calc_flevel=get_feats.FLevelFeatsTorch(save=True, out_dir=out_dir, feat_type='mfcc', deltas=1, **params))
 
 ```
+
 The snippet above is intended to be used with a `DataLoader`, which loads the utterances and calculates frame-level features on-the-fly (during training). `CustomDataset` takes the labels and audio directories as parameters, it also takes the name of the sets (if available). You can specify what type of frame level feature you want to use. Choose between: 'mfcc', 'fbanks', 'melspec'; moreover, you can to compute their first and second derivatives if needed: use the 'deltas' parameter. Now we can instantiate a `DataLoader` class (from torch.utils.data) and pass our `CustomDataset` as the (first) dataset parameter, the rest of the parameters depend on your criteria and needs:
 
 ```                       
