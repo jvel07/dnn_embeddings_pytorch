@@ -4,8 +4,12 @@ on 2021. 02. 09. 12 47
 
 Class based on https://github.com/manojpamk/pytorch_xvectors/
 """
+import sys
+sys.path.append('../')
+
 import argparse
 import os
+from dnn_models import *
 
 import torch
 
@@ -19,9 +23,9 @@ def main():
     parser.add_argument('-layer_name', default='fc1', help="DNN layer for extracting the embeddings")
     parser.add_argument('-n_proc', default=0, type=int,
                         help='Number of parallel processes. Default=0 (Number of input directory splits)')
-    parser.add_argument('model_dir', help='Directory containing the model checkpoints')
-    parser.add_argument('feat_dir', help='Directory containing features ready for extraction')
-    parser.add_argument('xvecs_out_dir', help='Output directory')
+    parser.add_argument('-model_dir', help='Directory containing the model checkpoints')
+    parser.add_argument('-feat_dir', help='Directory containing features ready for extraction')
+    parser.add_argument('-xvecs_out_dir', help='Output directory')
 
     args = parser.parse_args()
 
@@ -29,13 +33,13 @@ def main():
         os.makedirs(args.xvecs_out_dir)
 
     # Load model
-    net = eval('{}({}, p_dropout=0)'.format(args.model_type, args.num_classes))
+    net = eval('{}(257, {}, p_dropout=0)'.format(args.model_type, args.num_classes))
     net.load_state_dict(torch.load(args.model_dir))
     net.eval()
     net.cuda()
 
     # Getting input feature files
-    get_feats.extract_xvecs(source_path=args.feat_dir, out_dir=args.xvecs_out_dir, net=net, layerName=args.layer_name)
+    get_feats.extract_xvecs(source_path=args.feat_dir, out_dir=args.xvecs_out_dir, net=net, layer_name=args.layer_name)
 
 
 if __name__ == '__main__':

@@ -27,6 +27,7 @@ def execute_extraction_function(feat_type, waveform=None, **params):
         'fbanks': lambda: torchaudio.compliance.kaldi.fbank(waveform=waveform, **params),
         'spectrogram': lambda: torchaudio.compliance.kaldi.spectrogram(waveform=waveform, **params),
         'melspecT': lambda: torchaudio.transforms.MelSpectrogram(**params)(waveform),
+        'mfccT': lambda: torchaudio.transforms.MFCC(**params)(waveform),
     }
     return switcher.get(feat_type, lambda: "Error, feature extraction function {} not supported!".format(feat_type))()
 
@@ -130,8 +131,7 @@ def compute_feats_offline(source_path, out_dir, feat_type, deltas=None, config_f
             final_dir = out_dir + '/{0}/{1}/'.format(feat_type, os.path.basename(source_path))
             utils.save_features(final_dir, feat_type, wav_file, feat)
             utils.copy_conf(config_file, final_dir, feat_type)
-            print("Processed {} files computing {} features. Files saved to: {}".format(len(list_wavs), feat_type,
-                                                                                        out_dir))
+
         # Compute derivatives if asked for
         if deltas == 1:
             # Compute features
@@ -141,8 +141,7 @@ def compute_feats_offline(source_path, out_dir, feat_type, deltas=None, config_f
             final_dir = out_dir + '/{0}/{1}/'.format(feat_type, os.path.basename(source_path))
             utils.save_features(final_dir, feat_type, wav_file, feat)
             utils.copy_conf(config_file, final_dir, feat_type)
-            print("Processed {} files computing {} features. Files saved to: {}".format(len(list_wavs), feat_type,
-                                                                                        out_dir))
+
         if deltas == 2:
             # Compute features
             feat = execute_extraction_function(feat_type=feat_type, waveform=waveform, **params)
@@ -152,16 +151,14 @@ def compute_feats_offline(source_path, out_dir, feat_type, deltas=None, config_f
             final_dir = out_dir + '/{0}/{1}/'.format(feat_type, os.path.basename(source_path))
             utils.save_features(final_dir, feat_type, wav_file, feat)
             utils.copy_conf(config_file, final_dir, feat_type)
-            print("Processed {} files computing {} features. Files saved to: {}".format(len(list_wavs), feat_type,
-                                                                                        out_dir))
 
 
-def extract_xvecs(source_path, out_dir, net, layerName):
+def extract_xvecs(source_path, out_dir, net, layer_name):
     """ Function to extract the x-vector embeddings from the specified layer.
     Function based on https://github.com/manojpamk/pytorch_xvectors/
     Args:
         source_path (tensor, np array): The input features.
-        layerName (string): The name of the layer to extract the x-vectors from.
+        layer_name (string): The name of the layer to extract the x-vectors from: 'fc1', 'fc2', 6th and 7th, resp.
         net (object): Neural Network saved model.
         out_dir (string): Output directory for the x-vectors.
     """
@@ -174,17 +171,17 @@ def extract_xvecs(source_path, out_dir, net, layerName):
             activation[name] = output.detach()
         return hook
 
-    eval('net.{}.register_forward_hook(get_activation(layerName))'.format(layerName))
+    eval('net.{}.register_forward_hook(get_activation(layer_name))'.format(layer_name))
 
     xvecs = []
     for file in list_files:
         feat = np.load(file)
         out = net(x=torch.Tensor(feat).permute(1, 0).unsqueeze(0).cuda(), eps=0)
-        x_vec = np.squeeze(activation[layerName].cpu().numpy())
+        x_vec = np.squeeze(activation[layer_name].cpu().numpy())
         xvecs.append(x_vec)
     xvecs = np.vstack(xvecs)
 
-    np.savetxt(out_dir + 'xvecs_512_fc1.xvecs', xvecs)
+    np.savetxt(out_dir + '/xvecs_512_fc1.xvecs', xvecs)
     print("x-vecs saved to {}".format(out_dir))
 
     return xvecs

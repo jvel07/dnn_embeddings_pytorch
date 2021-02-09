@@ -4,7 +4,6 @@ on 2021. 02. 09. 14 40
 
 """
 import sys
-
 sys.path.append('../')
 
 import argparse
