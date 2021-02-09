@@ -32,7 +32,7 @@ task_audio_dir = corpora_dir + task + '/'
 labels = 'data/sleepiness/labels/labels.csv'
 
 # frame-level feats params/config
-params = utils.read_conf_file(file_name='mfcc.ini', conf_section='DEFAULT-XVEC')
+params = utils.read_conf_file(file_name='spectrogram.ini', conf_section='DEFAULTS')
 
 # Get model params
 parser = argparse.ArgumentParser(add_help=False)
@@ -44,7 +44,7 @@ parser.add_argument('-training_filepath', type=str, default='meta/training_feat.
 parser.add_argument('-testing_filepath', type=str, default='meta/testing_feat.txt')
 parser.add_argument('-validation_filepath', type=str, default='meta/validation_feat.txt')
 
-parser.add_argument('-input_dim', action="store_true", default=46)
+parser.add_argument('-input_dim', action="store_true", default=257)
 parser.add_argument('-num_classes', action="store_true", default=10)
 parser.add_argument('-lamda_val', action="store_true", default=0.1)
 parser.add_argument('-batch_size', action="store_true", default=128)
@@ -62,10 +62,11 @@ args = parser.parse_args()
 # Loading the data
 # train_set = CustomDataset(file_labels=labels, audio_dir=task_audio_dir, name_set='train', online=True)
 train_set = CustomDataset(file_labels='data/sleepiness/labels/labels.csv', audio_dir=task_audio_dir,
-                          name_set='train', online=False,
-                          feats_info=['data/sleepiness/{}/'.format(args.feat_type), '.npy'],
-                          calc_flevel=get_feats.FLevelFeatsTorch(save=True, out_dir=out_dir, feat_type='mfcc',
-                                                                 deltas=1, **params)
+                          name_set='train', online=True,
+                          # feats_info=['data/sleepiness/{}/'.format(args.feat_type), '.npy'],
+                          calc_flevel=get_feats.FLevelFeatsTorch(save=True, out_dir=out_dir,
+                                                                 feat_type='spectrogram',
+                                                                 deltas=0, **params)
                           )
 train_loader = DataLoader(dataset=train_set, batch_size=args.batch_size, shuffle=False,
                           num_workers=0, drop_last=False)
@@ -109,7 +110,7 @@ def train_model(data_loader, num_epochs):
     since = time.time()
 
     best_model_wts = copy.deepcopy(net.state_dict())
-    best_loss = 0.0
+    best_loss = 10.0
 
     for epoch in range(num_epochs):
         print('Epoch {}/{}'.format(epoch, num_epochs - 1))

@@ -15,42 +15,6 @@ import dnn_models
 import torch
 
 
-def extract_xvecs(in_feats, out_file, net, layerName):
-    """ Function to extract the x-vector embeddings from the specified layer.
-    Args:
-        in_feats (tensor, np array): The input features.
-        layerName (string): The name of the layer to extract the x-vectors from.
-        net (object): Neural Network saved model.
-        out_file (string): Output directory for the x-vectors.
-    """
-    activation = {}
-
-    def get_activation(name):
-        def hook(model, input, output):
-            activation[name] = output.detach()
-        return hook
-
-    eval('net.{}.register_forward_hook(get_activation(layerName))'.format(layerName))
-
-    xvecs = []
-    for feat in in_feats:
-        out = net(x=torch.Tensor(feat).permute(1, 0).unsqueeze(0).cuda(), eps=0)
-        x_vec = np.squeeze(activation[layerName].cpu().numpy())
-        xvecs.append(x_vec)
-
-    np.savetxt(out_file, xvecs)
-    print("x-vecs saved to {}".format(out_file))
-
-    return xvecs
-
-    # with kaldi_python_io.ArchiveWriter(outXvecArk, outXvecScp, matrix=False) as writer:
-    #     with ReadHelper('scp:%s'%inFeatsScp) as reader:
-    #         for key, mat in reader:
-    #             out = net(x=torch.Tensor(mat).permute(1,0).unsqueeze(0).cuda(),
-    #                       eps=0)
-    #             writer.write(key, np.squeeze(activation[layerName].cpu().numpy()))
-
-
 def prepare_model(args):
     if args.trainingMode == 'init':
         device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")

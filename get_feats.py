@@ -18,14 +18,14 @@ def execute_extraction_function(feat_type, waveform=None, **params):
     """Switcher to select a specific feature extraction function
     Args:
         feat_type (string): Type of the frame-level feature to extract from the utterances.
-                                Choose from: 'mfcc', 'fbanks', 'spec'.
+                                Choose from: 'mfcc', 'fbanks', 'spectrogram'.
         waveform (Tensor): Tensor object containing the waveform.
         **params: Parameters belonging to the corresponding feature extraction function.
     """
     switcher = {
         'mfcc': lambda: torchaudio.compliance.kaldi.mfcc(waveform=waveform, **params),
         'fbanks': lambda: torchaudio.compliance.kaldi.fbank(waveform=waveform, **params),
-        'spec': lambda: torchaudio.compliance.kaldi.spectrogram(waveform=waveform, **params),
+        'spectrogram': lambda: torchaudio.compliance.kaldi.spectrogram(waveform=waveform, **params),
         'melspecT': lambda: torchaudio.transforms.MelSpectrogram(**params)(waveform),
     }
     return switcher.get(feat_type, lambda: "Error, feature extraction function {} not supported!".format(feat_type))()
@@ -42,9 +42,9 @@ class FLevelFeatsTorch(object):
                             False otherwise. Default: None.
             out_dir (string, optional): Destination dir of the features, use when 'save=True'. Default: None.
             feat_type (string): Type of the frame-level feature to extract from the utterances.
-                                Choose from: 'mfcc', 'fbanks', 'melspec'. Default is: 'fbanks'.
+                                Choose from: 'mfcc', 'fbanks', 'melspec', 'spectrogram'. Default is: 'fbanks'.
             deltas (int, optional): Compute delta coefficients of a tensor. '1' for first order derivative, '2' for second order.
-                                     None for not using deltas. Default: None.
+                                     "0" or None for not using deltas. Default: None.
             **params (dictionary): Params of the fbanks.
         """
         self.deltas = deltas
@@ -61,7 +61,7 @@ class FLevelFeatsTorch(object):
         out_dir = self.out_dir
 
         # Compute without derivatives
-        if deltas is None:
+        if deltas == 0:
             # Compute features
             feat = execute_extraction_function(feat_type=self.feat_type, waveform=waveform, **params)
             # Save features if asked for
@@ -148,3 +148,43 @@ def compute_feats_offline(source_path, name_set, out_dir, feat_type, deltas=None
             out_dir = out_dir + '/{0}/{1}/'.format(feat_type, name_set)
             utils.save_features(out_dir, feat_type, wav_file, feat)
             utils.copy_conf(out_dir, feat_type)
+
+
+def extract_xvecs(source_path, out_file, net, layerName):
+    """ Function to extract the x-vector embeddings from the specified layer.
+    Args:
+        source_path (tensor, np array): The input features.
+        layerName (string): The name of the layer to extract the x-vectors from.
+        net (object): Neural Network saved model.
+        out_file (string): Output directory for the x-vectors.
+    """
+
+    list_files = utils.get_files_abspaths(source_path, '.npy')
+    activation = {}
+
+    def get_activation(name):
+        def hook(model, input, output):
+            activation[name] = output.detach()
+        return hook
+
+    eval('net.{}.register_forward_hook(get_activation(layerName))'.format(layerName))
+
+    xvecs = []
+    for file in list_files:
+        feat = np.load(file)
+        out = net(x=torch.Tensor(feat).permute(1, 0).unsqueeze(0).cuda(), eps=0)
+        x_vec = np.squeeze(activation[layerName].cpu().numpy())
+        xvecs.append(x_vec)
+    np.vstack(xvecs)
+    np.savetxt(out_file, xvecs)
+    print("x-vecs saved to {}".format(out_file))
+
+    return xvecs
+
+    # with kaldi_python_io.ArchiveWriter(outXvecArk, outXvecScp, matrix=False) as writer:
+    #     with ReadHelper('scp:%s'%inFeatsScp) as reader:
+    #         for key, mat in reader:
+    #             out = net(x=torch.Tensor(mat).permute(1,0).unsqueeze(0).cuda(),
+    #                       eps=0)
+    #             writer.write(key, np.squeeze(activation[layerName].cpu().numpy()))
+

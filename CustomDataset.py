@@ -33,7 +33,7 @@ class CustomDataset(Dataset):
         :return dictionary {
         """
         if feats_info is None:
-            feats_info = []
+            self.feats_info = []
         else:
             self.list_feature_files = utils.get_files_abspaths(path=feats_info[0] + name_set,
                                                                file_type=feats_info[1])
@@ -54,12 +54,14 @@ class CustomDataset(Dataset):
         name_set = self.name_set
 
         if self.online:
+            self.feats_info = None
             # waveform = utils.load_wav(wav_file, sr=16000, min_dur_sec=4)
             waveform = utils.load_wav_torch(wav_file, max_length_in_seconds=5, pad_and_truncate=True)
             sample = {
                 'wave': waveform, 'label': class_id#, 'wav_file': wav_name
             }
         else:
+            self.online = False
             feat_file_path = self.list_feature_files[idx]
             features = np.load(feat_file_path)
             sample = {
