@@ -95,11 +95,10 @@ def load_features_acc_file(filepath):
     return feats
 
 
-
 def read_conf_file(file_name, conf_section):
     dict_section_values = {}
     config = configparser.ConfigParser(delimiters='=', inline_comment_prefixes='#')
-    config.read('conf/{}'.format(file_name))
+    config.read(file_name)
     for param in config.options(conf_section):
         value = eval(config.get(conf_section, param))
         dict_section_values[param] = value
@@ -127,7 +126,7 @@ def load_labels(filepath, name_set):
 
 def save_features(out_dir, feat_type, wav_file, features):
     """
-    Saves the features as numpy arrays to disk. Intended for get_feats.FLevelFeatsTorch().
+    Saves the features as numpy arrays to disk. Intended for using with get_feats.FLevelFeatsTorch().
     Args:
         out_dir (string): Output dir.
         feat_type (string): Type of the feature to be saved. E.g.: 'mfcc', 'fbanks', 'spec'
@@ -136,12 +135,15 @@ def save_features(out_dir, feat_type, wav_file, features):
     """
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
-    np.save(out_dir + '/{0}_{1}'.format(feat_type, wav_file), features.numpy())
+    wav_name = os.path.splitext(os.path.basename(wav_file))[0]
+
+    file_name = '/{0}_{1}'.format(feat_type, wav_name)
+    np.save(out_dir + '/' + file_name, features.numpy())
 
 
-def copy_conf(out_dir, feat_type):
+def copy_conf(orig_conf_file, out_dir, feat_type):
     conf_file_bk_path = '{0}/conf/'.format(out_dir)
     if not os.path.exists(conf_file_bk_path):
         os.makedirs(conf_file_bk_path)
-    copyfile('conf/{}.ini'.format(feat_type), '{0}/{1}.ini'.format(conf_file_bk_path, feat_type))
+    copyfile(orig_conf_file, '{0}/{1}.ini'.format(conf_file_bk_path, feat_type))
 

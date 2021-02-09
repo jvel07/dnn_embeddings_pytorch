@@ -32,7 +32,7 @@ task_audio_dir = corpora_dir + task + '/'
 labels = 'data/sleepiness/labels/labels.csv'
 
 # frame-level feats params/config
-params = utils.read_conf_file(file_name='spectrogram.ini', conf_section='DEFAULTS')
+params = utils.read_conf_file(file_name='conf/spectrogram.ini', conf_section='DEFAULTS')
 
 # Get model params
 parser = argparse.ArgumentParser(add_help=False)
@@ -69,21 +69,22 @@ train_set = CustomDataset(file_labels='data/sleepiness/labels/labels.csv', audio
                                                                  deltas=0, **params)
                           )
 train_loader = DataLoader(dataset=train_set, batch_size=args.batch_size, shuffle=False,
-                          num_workers=0, drop_last=False)
+                          num_workers=0, drop_last=False, pin_memory=True)
 
-# dev_set = CustomDataset(file_labels='data/sleepiness/labels/labels.csv', audio_dir=task_audio_dir, name_set='dev',
-#                               online=False,
-#                               feats_info=['/media/jose/hk-data/PycharmProjects/the_speech/data/sleepiness/', 'mfcc'],
-#                               #         calc_flevel=get_feats.FbanksKaltorch(**params)
-#                               )
-# dev_loader = DataLoader(dataset=train_set, batch_size=args.batchSize, shuffle=False, num_workers=0)
-#
-# test_set = CustomDataset(file_labels='data/sleepiness/labels/labels.csv', audio_dir=task_audio_dir, name_set='test',
-#                               online=False,
-#                               feats_info=['/media/jose/hk-data/PycharmProjects/the_speech/data/sleepiness/', 'mfcc'],
-#                               #         calc_flevel=get_feats.FbanksKaltorch(**params)
-#                               )
-# test_loader = DataLoader(dataset=train_set, batch_size=args.batchSize, shuffle=False, num_workers=0)
+dev_set = CustomDataset(file_labels='data/sleepiness/labels/labels.csv', audio_dir=task_audio_dir,
+                        name_set='dev', online=True,
+                        # feats_info=['data/sleepiness/{}/'.format(args.feat_type), '.npy'],
+                        calc_flevel=get_feats.FLevelFeatsTorch(save=True, out_dir=out_dir,
+                                                               feat_type='spectrogram',
+                                                               deltas=0, **params)
+                        )
+dev_loader = DataLoader(dataset=dev_set, batch_size=args.batch_size, shuffle=False,
+                        num_workers=0, drop_last=False, pin_memory=True)
+
+# Concatenating Datasets for training with Train and Dev
+train_dev_sets = torch.utils.data.ConcatDataset([train_set, dev_set])
+train_dev_loader = DataLoader(dataset=train_dev_sets, batch_size=args.batch_size, shuffle=False, num_workers=0,
+                              drop_last=False, pin_memory=True)
 
 # Set the GPU
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -158,4 +159,4 @@ def train_model(data_loader, num_epochs):
 
 
 if __name__ == '__main__':
-    train_model(data_loader=train_loader, num_epochs=50)
+    train_model(data_loader=train_dev_loader, num_epochs=50)

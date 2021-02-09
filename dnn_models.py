@@ -9,12 +9,8 @@ import numpy as np
 
 '''
 TDNN as defined by https://www.danielpovey.com/files/2015_interspeech_multisplice.pdf
-Affine transformation not applied globally to all frames but smaller windows with local context
-batch_norm: True to include batch normalisation after the non linearity
 
-Context size and dilation determine the frames selected
-(although context size is not really defined in the traditional sense)
-For example:
+Context size and dilation determine the frames selected, that is:
     context size 5 and dilation 1 is equivalent to [-2,-1,0,1,2]
     context size 3 and dilation 2 is equivalent to [-2, 0, 2]
     context size 1 and dilation 1 is equivalent to [0]

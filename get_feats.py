@@ -100,63 +100,70 @@ class FLevelFeatsTorch(object):
             return feature
 
 
-def compute_feats_offline(source_path, name_set, out_dir, feat_type, deltas=None):
-    """Function to calculate the frame-level features and save them into files.
+def compute_feats_offline(source_path, out_dir, feat_type, deltas=None, config_file=None):
+    """Function to calculate the frame-level features and save them to files.
     The function saves one file (containing features) per utterance
     Args:
         source_path (string): Path to the wavs.
-        name_set (string, optional): Name of the subfolder. E.g.: train, dev, test.
         out_dir (string): Type of the frame-level feature to extract from the utterances.
                           Choose from: 'mfcc', 'fbanks', 'melspec'. Default is: 'fbanks'.
         feat_type (string): Type of the frame-level feature to extract from the utterances.
                             Choose from: 'mfcc', 'fbanks', 'melspec'. Default is: 'fbanks'.
-        deltas (int, optional): Compute delta coefficients of a tensor. '1' for first order derivative, '2' for second order.
-                                None for not using deltas. Default: None.
+        deltas (int, optional): Compute delta coefficients of a tensor. '1' for first order derivative,
+                                '2' for second order. None for not using deltas. Default: None.
+        config_file (string): Path to the configuration file (ini).
     """
-    list_wavs = utils.get_files_abspaths(path=source_path + name_set, file_type='.wav')
+    list_wavs = utils.get_files_abspaths(path=source_path, file_type='.wav')
     # frame-level feats params/config from the config file
-    params = utils.read_conf_file(file_name='{}.ini'.format(feat_type), conf_section='DEFAULT')
+    params = utils.read_conf_file(file_name=config_file, conf_section='DEFAULTS')
+
+    print("Computing {} for {} utterances in {}...".format(feat_type, len(list_wavs), source_path))
 
     for wav_file in list_wavs:
         # Load wav
         waveform = utils.load_wav_torch(wav_file, max_length_in_seconds=5, pad_and_truncate=True)
 
         # Compute without derivatives
-        if deltas is None:
+        if deltas == 0:
             # Compute features
             feat = execute_extraction_function(feat_type=feat_type, waveform=waveform, **params)
-            out_dir = out_dir + '/{0}/{1}/'.format(feat_type, name_set)
-            utils.save_features(out_dir, feat_type, wav_file, feat)
-            utils.copy_conf(out_dir, feat_type)
-
+            final_dir = out_dir + '/{0}/{1}/'.format(feat_type, os.path.basename(source_path))
+            utils.save_features(final_dir, feat_type, wav_file, feat)
+            utils.copy_conf(config_file, final_dir, feat_type)
+            print("Processed {} files computing {} features. Files saved to: {}".format(len(list_wavs), feat_type,
+                                                                                        out_dir))
         # Compute derivatives if asked for
         if deltas == 1:
             # Compute features
             feat = execute_extraction_function(feat_type=feat_type, waveform=waveform, **params)
             delta1 = torchaudio.functional.compute_deltas(feat)  # compute 1st order
             feat = torch.cat((feat, delta1), 1)
-            out_dir = out_dir + '/{0}/{1}/'.format(feat_type, name_set)
-            utils.save_features(out_dir, feat_type, wav_file, feat)
-            utils.copy_conf(out_dir, feat_type)
-
+            final_dir = out_dir + '/{0}/{1}/'.format(feat_type, os.path.basename(source_path))
+            utils.save_features(final_dir, feat_type, wav_file, feat)
+            utils.copy_conf(config_file, final_dir, feat_type)
+            print("Processed {} files computing {} features. Files saved to: {}".format(len(list_wavs), feat_type,
+                                                                                        out_dir))
         if deltas == 2:
             # Compute features
             feat = execute_extraction_function(feat_type=feat_type, waveform=waveform, **params)
             delta1 = torchaudio.functional.compute_deltas(feat)  # compute 1st order
             delta2 = torchaudio.functional.compute_deltas(delta1)
             feat = torch.cat((feat, delta1, delta2), 1)
-            out_dir = out_dir + '/{0}/{1}/'.format(feat_type, name_set)
-            utils.save_features(out_dir, feat_type, wav_file, feat)
-            utils.copy_conf(out_dir, feat_type)
+            final_dir = out_dir + '/{0}/{1}/'.format(feat_type, os.path.basename(source_path))
+            utils.save_features(final_dir, feat_type, wav_file, feat)
+            utils.copy_conf(config_file, final_dir, feat_type)
+            print("Processed {} files computing {} features. Files saved to: {}".format(len(list_wavs), feat_type,
+                                                                                        out_dir))
 
 
-def extract_xvecs(source_path, out_file, net, layerName):
+def extract_xvecs(source_path, out_dir, net, layerName):
     """ Function to extract the x-vector embeddings from the specified layer.
+    Function based on https://github.com/manojpamk/pytorch_xvectors/
     Args:
         source_path (tensor, np array): The input features.
         layerName (string): The name of the layer to extract the x-vectors from.
         net (object): Neural Network saved model.
-        out_file (string): Output directory for the x-vectors.
+        out_dir (string): Output directory for the x-vectors.
     """
 
     list_files = utils.get_files_abspaths(source_path, '.npy')
@@ -175,9 +182,10 @@ def extract_xvecs(source_path, out_file, net, layerName):
         out = net(x=torch.Tensor(feat).permute(1, 0).unsqueeze(0).cuda(), eps=0)
         x_vec = np.squeeze(activation[layerName].cpu().numpy())
         xvecs.append(x_vec)
-    np.vstack(xvecs)
-    np.savetxt(out_file, xvecs)
-    print("x-vecs saved to {}".format(out_file))
+    xvecs = np.vstack(xvecs)
+
+    np.savetxt(out_dir + 'xvecs_512_fc1.xvecs', xvecs)
+    print("x-vecs saved to {}".format(out_dir))
 
     return xvecs
 
