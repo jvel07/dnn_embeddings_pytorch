@@ -16,22 +16,21 @@ import torch
 
 
 def prepare_model(args):
-    if args.trainingMode == 'init':
+    if args.training_mode == 'init':
         device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
         print('Initializing Model...')
         step = 0
-        net = eval('dnn_models.{0}({1}, {2}, p_dropout=0)'.format(args.modelType, args.input_dim, args.num_classes))
+        net = eval('dnn_models.{0}({1}, {2}, p_dropout=0)'.format(args.model_type, args.input_dim, args.num_classes))
         print(net)
-        optimizer = torch.optim.Adam(net.parameters(), lr=args.baseLR)
+        optimizer = torch.optim.Adam(net.parameters(), lr=args.base_LR)
 
         net.to(device)
-        eventID = datetime.now().strftime('%Y%m-%d%H-%M%S')
-        saveDir = './models/modelType_{}_event_{}'.format(args.modelType, eventID)
-        os.makedirs(saveDir)
-        print("Model saved in {}".format(saveDir))
+        event_ID = datetime.now().strftime('%Y%m-%d%H-%M%S')
+        save_dir = '{}/models/modelType_{}_event_{}'.format(args.model_out_dir, args.model_type, event_ID)
+        os.makedirs(save_dir)
 
-        return net, optimizer, step, saveDir
+        return net, optimizer, step, save_dir
 
 
 def getParams():

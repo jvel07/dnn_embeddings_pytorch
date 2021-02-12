@@ -16,28 +16,21 @@ import utils
 
 class CustomDataset(Dataset):
 
-    def __init__(self, file_labels, audio_dir, name_set, online=False, feats_info=None, calc_flevel=None):
+    def __init__(self, file_labels, audio_dir, online=True, feats_fir=None, calc_flevel=None):
         """ Class to load a custom Dataset. Can be used as an input for the DataLoader.
         Args:
             file_labels (string): Path to the csv file with the labels.
             audio_dir (string): Path to the WAV utterances.
-            name_set (string): name of the dataset (train, dev, test).
             online (boolean, optional): if True, features are computed on the fly.
-                                        if False, features are loaded from disk. Default: False
-            feats_info (list, optional): Optional list with TWO elements. The first is the directory containing
-                                        the files of the features, the second is the type of the file (the file ext.)
-                                        that contain the features. (use only if 'online'=False). Default: None
-                                        E.g.: feats_info=['path/to/folder/', 'mfcc']
+                                        if False, features are loaded from disk. Default: True
+            feats_fir (string, optional): The directory containing the files of the features (use only if
+                                        'online'=False). Default: None.
             calc_flevel (callable, optional): Optional calculation to be applied on a sample. E.g. compute fbanks
                                             or MFCCs of the audio signals. Use when online=True.
         :return dictionary {
         """
-        if feats_info is None:
-            self.feats_info = []
-        else:
-            self.list_feature_files = utils.get_files_abspaths(path=feats_info[0] + name_set,
-                                                               file_type=feats_info[1])
-
+        name_set = os.path.basename(feats_fir)
+        self.list_feature_files = utils.get_files_abspaths(path=feats_fir, file_type='.npy')
         self.labels = utils.load_labels(file_labels, name_set)
         self.list_wavs = utils.get_files_abspaths(path=audio_dir + name_set, file_type='.wav')
         self.name_set = name_set

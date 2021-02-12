@@ -34,7 +34,7 @@ def execute_extraction_function(feat_type, waveform=None, **params):
 
 class FLevelFeatsTorch(object):
 
-    def __init__(self, save=None, out_dir=None, feat_type='fbanks', deltas=None, **params):
+    def __init__(self, save=None, out_dir=None, feat_type='fbanks', deltas=None, config_file=None):
         """
         Compute frame-level features of an audio signal using Kaldi-PyTorch and PyTorch on the fly
         and OPTIONALLY save them. Note: This class is intended to be used at training time in the DataLoader.
@@ -46,20 +46,23 @@ class FLevelFeatsTorch(object):
                                 Choose from: 'mfcc', 'fbanks', 'melspec', 'spectrogram'. Default is: 'fbanks'.
             deltas (int, optional): Compute delta coefficients of a tensor. '1' for first order derivative, '2' for second order.
                                      "0" or None for not using deltas. Default: None.
-            **params (dictionary): Params of the fbanks.
+            config_file (string): Path to the config (ini) file.
         """
         self.deltas = deltas
         self.feat_type = feat_type
-        self.params = params
+        self.config_file = config_file
         self.save = save
         self.out_dir = out_dir
 
     def __call__(self, sample, wav_file, name_set):
         waveform, label = sample['wave'], sample['label']
         save = self.save
-        params = self.params
+        config_file = self.config_file
         deltas = self.deltas
         out_dir = self.out_dir
+
+        # frame-level feats params/config
+        params = utils.read_conf_file(file_name=config_file, conf_section='DEFAULTS')
 
         # Compute without derivatives
         if deltas == 0:
@@ -69,7 +72,7 @@ class FLevelFeatsTorch(object):
             out_dir = out_dir + '/{0}/{1}/'.format(self.feat_type, name_set)
             if save:
                 utils.save_features(out_dir, self.feat_type, wav_file, feat)
-                utils.copy_conf(out_dir, self.feat_type)
+                utils.copy_conf(config_file, out_dir, self.feat_type)
             feature = {'feature': feat, 'label': label}
             return feature
 
@@ -83,7 +86,7 @@ class FLevelFeatsTorch(object):
             out_dir = out_dir + '/{0}/{1}/'.format(self.feat_type, name_set)
             if save:
                 utils.save_features(out_dir, self.feat_type, '{0}_{1}del'.format(wav_file, deltas), feat)
-                utils.copy_conf(out_dir, self.feat_type)
+                utils.copy_conf(config_file, out_dir, self.feat_type)
             feature = {'feature': feat, 'label': label}
             return feature
         if deltas == 2:
@@ -96,7 +99,7 @@ class FLevelFeatsTorch(object):
             out_dir = out_dir + '/{0}/{1}/'.format(self.feat_type, name_set)
             if save:
                 utils.save_features(out_dir, self.feat_type, '{0}_{1}del'.format(wav_file, deltas), feat)
-                utils.copy_conf(out_dir, self.feat_type)
+                utils.copy_conf(config_file, out_dir, self.feat_type)
             feature = {'feature': feat, 'label': label}
             return feature
 
