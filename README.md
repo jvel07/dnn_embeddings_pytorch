@@ -12,7 +12,7 @@ The required libraries are:
 The pipeline of the project is designed in a simple and straightforward manner. Just few steps and you can have frame-level features fed into a DNN to train it. The DNN structure is based on the above mentioned [paper](https://www.danielpovey.com/files/2018_icassp_xvectors.pdf). The network is utilized to extract the so-called x-vectors embeddings from the utterances. 
 
 *NOTE: 
-Here, apart from getting x-vector embeddings, we will also attempt to get different type of **DNN embeddings** by experimenting with Transformers, and CNNs as well. MOREOVER, this project is designed for Speech Analysis, Medical Speech Processing and Computational Paralinguistics, specially for **Feature Extraction** phases. This project is **NOT** designed/intended for Speech or Speaker Recognition (although its mehtodologies are based on those areas).*
+Here, apart from getting x-vector embeddings, we will also attempt to get different type of **DNN embeddings** by experimenting with Transformers, and CNNs as well. MOREOVER, this project is designed for Speech Analysis, Medical Speech Processing and Computational Paralinguistics, specially for **Feature Extraction** phases. This project is **NOT** designed/intended for Speech or Speaker Recognition (although the methodologies/techniques used are based on them).*
 
 Let's export the libraries we will need:
 
