@@ -1,7 +1,7 @@
 # DNN Embeddings for Speech and Audio Processing
 Extraction of DNN embeddings from utterances using PyTorch.
 
-This is a project under constant development. The main objective of it is to use DNNs to extract meaningful representations of frame-level audio features such as MFCCs, FBANKS, MelSpecs. We will try some types of DNNs for thispurpose. For example, the one used to extract x-vector embeddings, which is based on this [paper](https://www.danielpovey.com/files/2018_icassp_xvectors.pdf). Also, we will try different CNNS. And attention networks too.
+This is a project under constant development, there may be parts that have to be concluded or enhanced yet. The main objective of it is to use DNNs to extract meaningful representations of frame-level audio features such as MFCCs, FBANKS, MelSpecs. We will try some types of DNNs for this purpose. For example, we implemented the DNN architecture to extract x-vector embeddings, which is based on this [paper](https://www.danielpovey.com/files/2018_icassp_xvectors.pdf). Also, we will try different types of CNNs, and attention/transformer networks too.
 Here we will describe how to train a DNN that can be employed to extract x-vectors.
 The required libraries are:
 
@@ -12,7 +12,7 @@ The required libraries are:
 The pipeline of the project is designed in a simple and straightforward manner. Just few steps and you can have frame-level features fed into a DNN to train it. The DNN structure is based on the above mentioned [paper](https://www.danielpovey.com/files/2018_icassp_xvectors.pdf). The network is utilized to extract the so-called x-vectors embeddings from the utterances. 
 
 *NOTE: 
-Here, apart from getting x-vector embeddings, we will also attempt to get different type of **DNN embeddings** by experimenting with Transformers, and CNNs as well. MOREOVER, this project is designed for Speech Analysis, Medical Speech Processing and Computational Paralinguistics, specially for **Feature Extraction** phases. This project is **NOT** designed/intended for Speech or Speaker Recognition (although its mehtodologies are based on those areas).*
+Here, apart from getting x-vector embeddings, we will also attempt to get different types of **DNN embeddings** by experimenting with Transformers, and CNNs as well. MOREOVER, this project is designed for Speech Analysis, Medical Speech Processing and Computational Paralinguistics, specially for **Feature Extraction** phases. This project is **NOT** designed/intended for Speech or Speaker Recognition (although the methodologies/techniques used are based on them).*
 
 Let's export the libraries we will need:
 
