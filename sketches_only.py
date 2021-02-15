@@ -162,3 +162,5 @@ while step < total_steps:
 #         print(loggingLoss)
 #         # print('Batch: %d    Avg time/batch: %1.3f   Avg loss/batch: %1.3f' %(
 #         #         batch_idx, logTime/batch_idx, loggingLoss/300))
+
+

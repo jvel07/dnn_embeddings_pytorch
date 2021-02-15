@@ -61,7 +61,7 @@ parser.add_argument('-model_out_dir', default='data/sleepiness/spectrogram',
 parser.add_argument('-input_dim', action="store_true", default=257)
 parser.add_argument('-num_classes', action="store_true", default=10)
 parser.add_argument('-batch_size', action="store_true", default=128)
-parser.add_argument('-num_epochs', action="store_true", default=100)
+parser.add_argument('-num_epochs', action="store_true", default=30)
 
 parser.add_argument('-training_mode', default='init',
                     help='(init) Train from scratch, (resume) Resume training, (finetune) Finetune a pretrained model')
@@ -73,6 +73,7 @@ args = parser.parse_args()
 
 if not args.online and (args.feat_dir_train is None or args.feat_dir_dev is None):
     parser.error("When -online=False, please specify -feats_dir.")
+
 
 # Loading the data
 train_set = CustomDataset(file_labels=args.labels, audio_dir=task_audio_dir, online=args.online,
@@ -95,6 +96,9 @@ dev_loader = DataLoader(dataset=dev_set, batch_size=args.batch_size, shuffle=Fal
 
 # Concatenating Datasets for training with Train and Dev
 train_dev_sets = torch.utils.data.ConcatDataset([train_set, dev_set])
+
+n_iters = 3000
+num_epochs = n_iters / (len(train_dev_sets) / args.batch_size)
 train_dev_loader = DataLoader(dataset=train_dev_sets, batch_size=args.batch_size, shuffle=False, num_workers=0,
                               drop_last=False, pin_memory=True)
 
@@ -104,18 +108,18 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 net, optimizer, step, save_dir = train_utils.prepare_model(args)
 criterion = nn.CrossEntropyLoss()
 # LR scheduler
-exp_lr_scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer,
-                                                       max_lr=args.max_LR,
-                                                       cycle_momentum=False,
-                                                       div_factor=5,
-                                                       final_div_factor=1e+3,
-                                                       total_steps=args.num_epochs * len(train_dev_loader),
-                                                       # * numBatchesPerArk,
-                                                       pct_start=0.15)
+cyclic_lr_scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer,
+                                                          max_lr=args.max_LR,
+                                                          cycle_momentum=False,
+                                                          div_factor=5,
+                                                          final_div_factor=1e+3,
+                                                          total_steps=args.num_epochs * len(train_dev_loader),
+                                                          # * numBatchesPerArk,
+                                                          pct_start=0.15)
 
 
 # Decay LR by a factor of 0.1 every 7 epochs
-# exp_lr_scheduler = lr_scheduler.StepLR(optimizer, step_size=7, gamma=0.1)
+# cyclic_lr_scheduler = lr_scheduler.StepLR(optimizer, step_size=7, gamma=0.1)
 
 
 # Train model
@@ -124,12 +128,13 @@ def train_model(data_loader, num_epochs):
 
     best_model_wts = copy.deepcopy(net.state_dict())
     best_loss = 10.0
+    iter = 0
 
     for epoch in range(num_epochs):
         print('Epoch {}/{}'.format(epoch, num_epochs - 1))
         print('-' * 10)
         net.train()
-        logging_loss = 0
+        logging_loss = 0.0
 
         for batch_idx, sample_batched in enumerate(data_loader):
             x_train = sample_batched['feature'].to(device)
@@ -142,11 +147,13 @@ def train_model(data_loader, num_epochs):
             loss = criterion(output, y_train)
             loss.backward()
             # stats
-            logging_loss += loss.item() * y_train.shape[0]
+            logging_loss += loss.item() #* y_train.shape[0]
             optimizer.step()  # updating weights
-        exp_lr_scheduler.step()
-        epoch_loss = logging_loss / len(train_set)
-
+        # iter += 1
+        # if iter % 500 == 0:
+        #     print('Loss: {:.4f}'.format(epoch_loss))
+        cyclic_lr_scheduler.step()
+        epoch_loss = logging_loss / len(train_dev_sets)
         print('Loss: {:.4f}'.format(epoch_loss))
 
         if epoch_loss < best_loss:
@@ -165,8 +172,8 @@ def train_model(data_loader, num_epochs):
     print('Best val Acc: {:4f}'.format(best_loss))
 
     # load best model weights
-    net.load_state_dict(best_model_wts)
-    return net
+    # net.load_state_dict(best_model_wts)
+    # return net
 
 
 if __name__ == '__main__':
