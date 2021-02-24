@@ -8,7 +8,7 @@ sys.path.append('../')
 
 import argparse
 
-import get_feats
+from feature_extraction import get_feats
 
 
 def main():
@@ -25,8 +25,8 @@ def main():
 
     args = parser.parse_args()
 
-    get_feats.compute_feats_offline(source_path=args.audio_path, out_dir=args.out_dir, feat_type=args.feat_type,
-                                    deltas=args.deltas, config_file=args.config)
+    get_feats.compute_flfeats_offline(source_path=args.audio_path, out_dir=args.out_dir, feat_type=args.feat_type,
+                                      deltas=args.deltas, config_file=args.config)
 
 
 if __name__ == '__main__':

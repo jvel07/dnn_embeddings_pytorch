@@ -8,14 +8,15 @@ import configparser
 import pathlib
 import random
 
-# import librosa
+import librosa
 import os
 import numpy as np
 import pandas as pd
 from shutil import copyfile
+from sklearn import preprocessing
 
-# import torch
-# import torchaudio
+import torch
+import torchaudio
 
 
 def get_files_abspaths(path, file_type=None):
@@ -50,8 +51,8 @@ def load_wav(audio_filepath, sr, min_dur_sec=5):
         extended_wav = audio_data
 
     extended_wav = torch.from_numpy(extended_wav)
-    return extended_wav.reshape(1,
-                                -1)  # reshaping to (channel, samples) as needed in https://pytorch.org/audio/stable/compliance.kaldi.html
+    return extended_wav.reshape(1, -1)  # reshaping to (channel, samples) as
+                                        # needed in https://pytorch.org/audio/stable/compliance.kaldi.html
 
 
 def load_wav_torch(audio_filepath, max_length_in_seconds, pad_and_truncate):
@@ -124,9 +125,15 @@ def load_labels(filepath, name_set):
     :return object
     """
 
-    df = pd.read_csv(filepath)
+    df = pd.read_csv(filepath, delimiter=' ')
+    # df['label'] = df['label'].astype('category')
+    # df['cat_lbl'] = df['label'].cat.codes
     df_labels = df[df['file_name'].str.match(name_set)]
     labels = df_labels.label.values
+    le = preprocessing.LabelEncoder()
+    labels = le.fit_transform(labels)
+    # labels = torch.from_numpy(labels)
+    # labels_hot = torch.nn.functional.one_hot(labels)
 
     return labels
 
@@ -172,7 +179,7 @@ def load_data_full(data_path, layer_name):
         dict_data['x_' + item] = np.loadtxt(file_dataset)
         # Load labels
         lbl_path = os.path.dirname(os.path.dirname(data_path))
-        file_lbl_train = lbl_path + '/labels/labels.csv'
+        file_lbl_train = lbl_path + '/labels/labels_bk.csv'
         df = pd.read_csv(file_lbl_train)
         df_labels = df[df['file_name'].str.match(item)]
         dict_data['y_' + item] = df_labels.label.values

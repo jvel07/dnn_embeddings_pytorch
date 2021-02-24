@@ -19,18 +19,16 @@ list_c = [1e-6, 1e-5, 1e-4, 1e-3, 0.01, 0.1]
 
 dev_preds_dic = {}
 feat = 'spec'
-x_train, x_dev, x_test, y_train, y_dev, y_test,  file_n = load_data_full(data_path='/media/jose/hk-data'
-                                                                                   '/PycharmProjects'
-                                                                                   '/dnn_embeddings_pytorch/data/'
-                                                                                   'sleepiness/spectrogram/xvecs',
-                                                                         layer_name='fc1')
+x_train, x_dev, x_test, y_train, y_dev, y_test, file_n = load_data_full(
+                                                            data_path='../data/sleepiness/spectrogram/xvecs',
+                                                            layer_name='fc1')
 
 x_combined = np.concatenate((x_train, x_dev))
 y_combined = np.concatenate((y_train, y_dev))
 
 std_flag = True
 if std_flag:
-    std_scaler = preprocessing.Normalizer()
+    std_scaler = preprocessing.StandardScaler()
     x_train = std_scaler.fit_transform(x_train)
     x_dev = std_scaler.transform(x_dev)
 
@@ -57,14 +55,13 @@ for c in list_c:
 optimum_complexity = list_c[np.argmax(spear_scores)]
 print('\nOptimum complexity: {0:.6f}'.format(optimum_complexity))
 
-
 y_pred = svm_helper.train_svr_gpu(x_combined, y_combined.ravel(), X_eval=x_test, c=optimum_complexity, nu=0.5)
 # y_pred = sh.linear_trans_preds_test(y_train=y_train, preds_dev=preds_orig, preds_test=y_pred)
 coef_test, p_2 = stats.spearmanr(y_test, y_pred)
 # coef_test2 = np.corrcoef(y_test, y_pred)
 
 print(os.path.basename(file_n), "\nTest results with", optimum_complexity, "- spe:", coef_test)
-print(20*'-')
+print(20 * '-')
 # util.results_to_csv(file_name='exp_results/results_{}_{}_srand_spec.csv'.format(task, feat_type[0]),
 #                     list_columns=['Exp. Details', 'Gaussians', 'Deltas', 'C', 'SPE', 'STD', 'SET', 'SRAND'],
 #                     list_values=[os.path.basename(file_n), ga, feat_type[2], optimum_complexity, coef_test,

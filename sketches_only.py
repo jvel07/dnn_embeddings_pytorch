@@ -11,13 +11,9 @@ import time
 
 import torch
 import torch.nn as nn
-import torchaudio
-from torch.utils.data import DataLoader
-from torchaudio import transforms
 import numpy as np
 
-import dnn_models
-import get_feats
+from feature_extraction import get_feats
 import train_utils
 from CustomDataset import CustomDataset
 

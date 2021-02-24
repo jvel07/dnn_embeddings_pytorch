@@ -9,11 +9,11 @@ sys.path.append('../')
 
 import argparse
 import os
-from dnn_models import *
 
 import torch
 
-import get_feats
+from feature_extraction import get_feats
+from dnn_models import *
 
 
 def main():

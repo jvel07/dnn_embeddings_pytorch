@@ -9,21 +9,14 @@ sys.path.extend(['/home/jose/PycharmProjects/dnn_embeddings_pytorch'])
 
 import argparse
 import copy
-import sys
 import time
 
 import torch
 import torch.nn as nn
-import torchaudio
-from torch.optim import lr_scheduler
 from torch.utils.data import DataLoader
-from torchaudio import transforms
-import numpy as np
 
-import dnn_models
-import get_feats
+from feature_extraction import get_feats
 import train_utils
-import utils
 from CustomDataset import CustomDataset
 
 # task (name of the dataset)
@@ -48,7 +41,7 @@ parser.add_argument('-deltas', default=0, type=int, help="Compute delta coeffici
 parser.add_argument('-online', default=True, required=False, help='If True, features are computed on the fly. '
                                                                   'If False, features are loaded from disk from '
                                                                   'specified input of -. Default: True')
-parser.add_argument('-labels', default='data/sleepiness/labels/labels.csv', required=False, help='Path to the file '
+parser.add_argument('-labels', default=labels, required=False, help='Path to the file '
                                                                                                  'containing the labels.')
 parser.add_argument('-feats_dir_train', default='data/sleepiness/spectrogram/train',
                     help='Path to the folder containing the features.')
@@ -59,8 +52,8 @@ parser.add_argument('-model_out_dir', default='data/sleepiness/spectrogram',
                     help='Path to the folder containing the features.')
 
 parser.add_argument('-input_dim', action="store_true", default=257)
-parser.add_argument('-num_classes', action="store_true", default=10)
-parser.add_argument('-batch_size', action="store_true", default=128)
+parser.add_argument('-num_classes', action="store_true", default=10892)
+parser.add_argument('-batch_size', action="store_true", default=64)
 parser.add_argument('-num_epochs', action="store_true", default=30)
 
 parser.add_argument('-training_mode', default='init',
@@ -72,8 +65,7 @@ parser.add_argument('-max_LR', default=2e-3, type=float, help='Maximum LR')
 args = parser.parse_args()
 
 if not args.online and (args.feat_dir_train is None or args.feat_dir_dev is None):
-    parser.error("When -online=False, please specify -feats_dir.")
-
+    parser.error("When -online=False, please specify -feat_dir_train adn -feat_dir_dev.")
 
 # Loading the data
 train_set = CustomDataset(file_labels=args.labels, audio_dir=task_audio_dir, online=args.online,
@@ -96,11 +88,11 @@ dev_loader = DataLoader(dataset=dev_set, batch_size=args.batch_size, shuffle=Fal
 
 # Concatenating Datasets for training with Train and Dev
 train_dev_sets = torch.utils.data.ConcatDataset([train_set, dev_set])
-
-n_iters = 3000
-num_epochs = n_iters / (len(train_dev_sets) / args.batch_size)
 train_dev_loader = DataLoader(dataset=train_dev_sets, batch_size=args.batch_size, shuffle=False, num_workers=0,
                               drop_last=False, pin_memory=True)
+# n_iters = 3000
+# num_epochs = n_iters / (len(train_dev_sets) / args.batch_size)
+
 
 # Set the GPU
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -139,11 +131,15 @@ def train_model(data_loader, num_epochs):
         for batch_idx, sample_batched in enumerate(data_loader):
             x_train = sample_batched['feature'].to(device)
             x_train = torch.transpose(x_train, 1, -1)
-            y_train = sample_batched['label'].to(device)
+            y_train = sample_batched['label']
+            y_train = y_train.to(dtype=torch.long)
+            y_train = y_train.to(device)
             # zeroing the gradients
             optimizer.zero_grad()
             # forward prop + backward prop + optimization
             output = net(x_train, args.num_epochs)
+            # print(output.size())
+            # print(y_train.size())
             loss = criterion(output, y_train)
             loss.backward()
             # stats
@@ -161,10 +157,10 @@ def train_model(data_loader, num_epochs):
             # best_model_wts = copy.deepcopy(net.state_dict())
             # Save checkpoint
             torch.save({
-                'epoch': epoch,
+                # 'epoch': epoch,
                 'model_state_dict': net.state_dict(),
                 'optimizer_state_dict': optimizer.state_dict(),
-                'loss': loss,
+                # 'loss': loss,
             }, '{}/checkpoint_{}'.format(save_dir, epoch))
 
     time_elapsed = time.time() - since

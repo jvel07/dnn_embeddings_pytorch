@@ -12,6 +12,7 @@ import torchaudio
 import numpy as np
 
 import utils
+from feature_extraction.fisher_helper import *
 
 
 def execute_extraction_function(feat_type, waveform=None, **params):
@@ -34,13 +35,13 @@ def execute_extraction_function(feat_type, waveform=None, **params):
 
 class FLevelFeatsTorch(object):
 
-    def __init__(self, save=None, out_dir=None, feat_type='fbanks', deltas=None, config_file=None):
+    def __init__(self, save=True, out_dir=None, feat_type='fbanks', deltas=None, config_file=None):
         """
         Compute frame-level features of an audio signal using Kaldi-PyTorch and PyTorch on the fly
         and OPTIONALLY save them. Note: This class is intended to be used at training time in the DataLoader.
         Args:
             save (boolean, optional): Boolean, if the features have to be saved to disk set it to True;
-                            False otherwise. Default: None.
+                                      False otherwise. Default: True.
             out_dir (string, optional): Destination dir of the features, use when 'save=True'. Default: None.
             feat_type (string): Type of the frame-level feature to extract from the utterances.
                                 Choose from: 'mfcc', 'fbanks', 'melspec', 'spectrogram'. Default is: 'fbanks'.
@@ -104,7 +105,7 @@ class FLevelFeatsTorch(object):
             return feature
 
 
-def compute_feats_offline(source_path, out_dir, feat_type, deltas=None, config_file=None):
+def compute_flfeats_offline(source_path, out_dir, feat_type, deltas=None, config_file=None):
     """Function to calculate the frame-level features and save them to files.
     The function saves one file (containing features) per utterance
     Args:
@@ -189,10 +190,40 @@ def extract_xvecs(source_path, out_dir, net, layer_name):
 
     return xvecs
 
-    # with kaldi_python_io.ArchiveWriter(outXvecArk, outXvecScp, matrix=False) as writer:
-    #     with ReadHelper('scp:%s'%inFeatsScp) as reader:
-    #         for key, mat in reader:
-    #             out = net(x=torch.Tensor(mat).permute(1,0).unsqueeze(0).cuda(),
-    #                       eps=0)
-    #             writer.write(key, np.squeeze(activation[layerName].cpu().numpy()))
+
+
+# def train_gmm(features, )
+
+class FisherVectors(object):
+
+    def __init__(self, feats_dir=None, feats_gmm_dir=None, save=True, out_dir=None, config_file=None):
+        """
+        Compute frame-level features of an audio signal using VLFeat Note: This class is intended to be used at
+        training time in the DataLoader.
+        Args:
+            feats_dir (string): Path to the frame-level features for Fisher vector encoding.
+            feats_gmm_dir (string): Path to the frame-level features for GMM training.
+            save (boolean, optional): Boolean, if the features have to be saved to disk set it to True;
+                                      False otherwise. Default: True.
+            out_dir (string, optional): Destination dir of the features, use when 'save=True'. Default: None.
+            config_file (string): Path to the config (ini) file.
+        """
+        self.feats_gmm_dir = feats_gmm_dir
+        self.feats_dir = feats_dir
+        self.config_file = config_file
+        self.save = save
+        self.out_dir = out_dir
+
+    def __call__(self, sample, wav_file, name_set):
+        feature, label = sample['feature'], sample['label']
+        save = self.save
+        config_file = self.config_file
+        out_dir = self.out_dir
+        feats_gmm_dir = self.feats_gmm_dir
+
+        # Reading params/config
+        params = utils.read_conf_file(file_name=config_file, conf_section='DEFAULTS')
+
+        # extract Fisher vectors
+        # fish = extract_fishers(feature)
 
