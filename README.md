@@ -1,7 +1,11 @@
 # DNN Embeddings for Speech and Audio Processing
 Extraction of DNN embeddings from utterances using PyTorch.
 
-This is a project under constant development, there may be parts that have to be concluded or enhanced yet. The main objective of it is to use DNNs to extract meaningful representations of frame-level audio features such as MFCCs, FBANKS, MelSpecs. We will try some types of DNNs for this purpose. For example, we implemented the DNN architecture to extract x-vector embeddings, which is based on this [paper](https://www.danielpovey.com/files/2018_icassp_xvectors.pdf). Also, we will try different types of CNNs, and attention/transformer networks too.
+This is a project under constant development, there may be parts that have to be concluded or enhanced yet. The main objective of it is to use DNNs to extract meaningful representations of frame-level audio features such as MFCCs, FBANKS, MelSpecs. We will try some types of DNNs for this purpose. For example, we implemented the DNN architecture to extract x-vector embeddings, which is based on this [paper](https://www.danielpovey.com/files/2018_icassp_xvectors.pdf).
+
+X-vectors are the current state-of-the-art for speaker verification, here we use these representations for medical speech processing and computational paralinguistic tasks.
+
+Also, we will try different types of CNNs, and attention/transformer networks too.
 Here we will describe how to train a DNN that can be employed to extract x-vectors.
 The required libraries are:
 
