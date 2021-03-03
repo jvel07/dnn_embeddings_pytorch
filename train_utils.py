@@ -49,6 +49,8 @@ def count_parameters(model):
 
 def get_train_params():
     parser = argparse.ArgumentParser()
+    parser.add_argument('-audio_dir', default='/media/jose/hk-data/PycharmProjects/the_speech/audio/sleepiness/', help='Path to the folder containing the wavs.')
+
     parser.add_argument('-feat_type', type=str, default='melspecT', help="Type of the frame-level features to load or"
                                                                      "extract. Available types: mfcc, fbanks, spec,"
                                                                      "melspecT")

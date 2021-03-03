@@ -57,7 +57,7 @@ def use_resnet34(num_classes):
     resnet_model = resnet34(pretrained=True)
     # adapting number of classes
     resnet_model.fc = nn.Linear(512, num_classes)
-    # adapting number of channels to 1
+    # adapting number of channels from 3 (originally) to 1
     resnet_model.conv1 = nn.Conv2d(1, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False)
     resnet_model = resnet_model.to(device)
 
@@ -81,9 +81,9 @@ cyclic_lr_scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer,
 
 
 # Train model
-def train_model(_train_loader, _dev_loader, num_epochs):
+def train_model(_train_loader, num_epochs):
 
-    for epoch in range(1, num_epochs+1):
+    for epoch in range(num_epochs):
         print('Epoch {}/{}'.format(epoch, num_epochs - 1))
         print('-' * 10)
 
@@ -108,6 +108,15 @@ def train_model(_train_loader, _dev_loader, num_epochs):
         resnet_train_losses.append(batch_losses)
         print(f'Epoch - {epoch} Train-Loss : {np.mean(resnet_train_losses[-1])}')
 
+
+def eval_model(_dev_loader, num_epochs):
+
+    for epoch in range(num_epochs):
+        print('Epoch {}/{}'.format(epoch, num_epochs - 1))
+        print('-' * 10)
+
+        resnet_valid_losses = []
+        batch_losses = []
         # set model to eval phase
         net.eval()
         batch_losses = []
@@ -132,6 +141,7 @@ def train_model(_train_loader, _dev_loader, num_epochs):
 
 
 if __name__ == '__main__':
-    train_model(train_loader, dev_loader, 50)
+    train_model(train_loader, 50)
+    eval_model(dev_loader, 50)
 
 
