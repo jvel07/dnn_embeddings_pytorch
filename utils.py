@@ -40,7 +40,7 @@ def get_files_abspaths(path, file_type=None):
 
 
 # Load wav and fix it to a specific length
-def load_wav(audio_filepath, sr, min_dur_sec=5):
+def load_wav(audio_filepath, sr, min_dur_sec):
     audio_data, fs = librosa.load(audio_filepath, sr=16000)
     len_file = len(audio_data)
 
@@ -125,17 +125,17 @@ def load_labels(filepath, name_set):
     :return object
     """
 
-    df = pd.read_csv(filepath, delimiter=' ')
+    df = pd.read_csv(filepath, delimiter=',')
     # df['label'] = df['label'].astype('category')
     # df['cat_lbl'] = df['label'].cat.codes
     df_labels = df[df['file_name'].str.match(name_set)]
     labels = df_labels.label.values
-    le = preprocessing.LabelEncoder()
-    labels = le.fit_transform(labels)
-    # labels = torch.from_numpy(labels)
+    # le = preprocessing.LabelEncoder()
+    # labels = le.fit_transform(labels)
+    labels = torch.from_numpy(np.asarray(labels).astype('int64'))
     # labels_hot = torch.nn.functional.one_hot(labels)
 
-    return labels
+    return labels#, df_labels.file_name.values
 
 
 def save_features(out_dir, feat_type, wav_file, features):

@@ -12,7 +12,6 @@ sys.path.extend(['/home/jose/PycharmProjects/dnn_embeddings_pytorch'])
 import argparse
 import copy
 import time
-import numpy as np
 
 import torch
 import torch.nn as nn
@@ -32,14 +31,47 @@ task_audio_dir = corpora_dir + task + '/'
 labels = 'data/sleepiness/labels/labels_orig.csv'
 
 # Get model params
-parser = train_utils.get_train_params()
+parser = argparse.ArgumentParser(add_help=False)
+parser.add_argument('-feat_type', type=str, default='spectrogram', help="Type of the frame-level features to load or"
+                                                                        "extract. Available types: mfcc, fbanks, spec,"
+                                                                        "melspecT")
+parser.add_argument('-config_file', default='conf/spectrogram.ini', help='Path to the config (ini) file.')
+parser.add_argument('-deltas', default=0, type=int, help="Compute delta coefficients of a tensor. '1' for "
+                                                         "first order derivative, '2' for second order. "
+                                                         "None for not using deltas. Default: None.")
+
+parser.add_argument('-online', default=True, required=False, help='If True, features are computed on the fly. '
+                                                                  'If False, features are loaded from disk from '
+                                                                  'specified input of -. Default: True')
+parser.add_argument('-labels', default=labels, required=False, help='Path to the file '
+                                                                                                 'containing the labels.')
+parser.add_argument('-feats_dir_train', default='data/sleepiness/spectrogram/train',
+                    help='Path to the folder containing the features.')
+parser.add_argument('-feats_dir_dev', default='data/sleepiness/spectrogram/dev',
+                    help='Path to the folder containing the features.')
+
+parser.add_argument('-model_out_dir', default='data/sleepiness/spectrogram',
+                    help='Path to the folder containing the features.')
+
+parser.add_argument('-input_dim', action="store_true", default=257)
+parser.add_argument('-num_classes', action="store_true", default=10892)
+parser.add_argument('-batch_size', action="store_true", default=32)
+parser.add_argument('-num_epochs', action="store_true", default=20)
+
+parser.add_argument('-training_mode', default='init',
+                    help='(init) Train from scratch, (resume) Resume training, (finetune) Finetune a pretrained model')
+parser.add_argument('-model_type', default='TransformerPrime', help='Model class. Check dnn_models.py')
+parser.add_argument('-base_LR', default=1e-3, type=float, help='Initial LR')
+parser.add_argument('-max_LR', default=2e-3, type=float, help='Maximum LR')
+
 args = parser.parse_args()
+
 if not args.online and (args.feat_dir_train is None or args.feat_dir_dev is None):
     parser.error("When -online=False, please specify -feat_dir_train adn -feat_dir_dev.")
 
 # Loading the data
 train_set = CustomDataset(file_labels=args.labels, audio_dir=task_audio_dir, online=args.online,
-                          feats_fir=args.feats_dir_train, max_length_sec=25,
+                          feats_fir=args.feats_dir_train,
                           calc_flevel=get_feats.FLevelFeatsTorch(save=True, out_dir=out_dir,
                                                                  feat_type=args.feat_type,
                                                                  deltas=args.deltas, config_file=args.config_file)
@@ -48,7 +80,7 @@ train_loader = DataLoader(dataset=train_set, batch_size=args.batch_size, shuffle
                           num_workers=0, drop_last=False, pin_memory=True)
 
 dev_set = CustomDataset(file_labels=args.labels, audio_dir=task_audio_dir, online=args.online,
-                        feats_fir=args.feats_dir_dev, max_length_sec=25,
+                        feats_fir=args.feats_dir_dev,
                         calc_flevel=get_feats.FLevelFeatsTorch(save=True, out_dir=out_dir,
                                                                feat_type=args.feat_type,
                                                                deltas=args.deltas, config_file=args.config_file)
@@ -57,9 +89,9 @@ dev_loader = DataLoader(dataset=dev_set, batch_size=args.batch_size, shuffle=Fal
                         num_workers=0, drop_last=False, pin_memory=True)
 
 # Concatenating Datasets for training with Train and Dev
-# train_dev_sets = torch.utils.data.ConcatDataset([train_set, dev_set])
-# train_dev_loader = DataLoader(dataset=train_dev_sets, batch_size=args.batch_size, shuffle=False, num_workers=0,
-#                               drop_last=False, pin_memory=True)
+train_dev_sets = torch.utils.data.ConcatDataset([train_set, dev_set])
+train_dev_loader = DataLoader(dataset=train_dev_sets, batch_size=args.batch_size, shuffle=False, num_workers=0,
+                              drop_last=False, pin_memory=True)
 # n_iters = 3000
 # num_epochs = n_iters / (len(train_dev_sets) / args.batch_size)
 
@@ -75,7 +107,7 @@ cyclic_lr_scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer,
                                                           cycle_momentum=False,
                                                           div_factor=5,
                                                           final_div_factor=1e+3,
-                                                          total_steps=args.num_epochs * len(train_loader),
+                                                          total_steps=args.num_epochs * len(train_dev_loader),
                                                           # * numBatchesPerArk,
                                                           pct_start=0.15)
 
@@ -99,22 +131,20 @@ def train_model(data_loader, num_epochs):
         # set model to train phase
         net.train()
         logging_loss = 0.0
-        preds_list = []
-        truths_list = []
-        loss_list = []
 
         for batch_idx, sample_batched in enumerate(data_loader):
             x_train = sample_batched['feature'].to(device)
-            x_train = torch.transpose(x_train, 1, -1).unsqueeze(1)
-            print(x_train.shape)
-            y_train = sample_batched['label'].to(device)
+            x_train = torch.transpose(x_train, 1, -1)
+            y_train = sample_batched['label']
             # y_train = y_train.to(dtype=torch.long)
-            optimizer.zero_grad()  # zeroing the gradients
-            output = net(x_train)  # forward prop + backward prop + optimization
-            preds = torch.argmax(output, dim=1)
-            # adding preds and ground truths to the lists
-            preds_list.append(preds.cpu().detach().numpy())
-            truths_list.append(y_train.cpu().detach().numpy())
+            y_train = y_train.to(device)
+            # zeroing the gradients
+            optimizer.zero_grad()
+            # forward prop + backward prop + optimization
+            output = net(x_train, args.num_epochs)
+            # print(batch_idx)
+            # print(output.size())
+            # print(y_train.size())
             loss = criterion(output, y_train)
             loss.backward()
             # stats
@@ -123,11 +153,9 @@ def train_model(data_loader, num_epochs):
         # iter += 1
         # if iter % 500 == 0:
         #     print('Loss: {:.4f}'.format(epoch_loss))
-        # loss_list.append(logging_loss / len(data_loader.dataset))
         cyclic_lr_scheduler.step()
-        uar = recall_score(truths_list, preds_list, average='macro')
-        epoch_loss = logging_loss / len(data_loader.dataset)
-        print('Loss: {:.4f} - UAR: {}'.format(epoch_loss, uar / len(data_loader.dataset)))
+        epoch_loss = logging_loss / len(train_dev_sets)
+        print('Loss: {:.4f}'.format(epoch_loss))
 
         if epoch_loss < best_loss:
             best_loss = epoch_loss
@@ -149,41 +177,5 @@ def train_model(data_loader, num_epochs):
     # return net
 
 
-def eval_model(data_loader, num_epochs):
-    since = time.time()
-    best_model_wts = copy.deepcopy(net.state_dict())
-    best_loss = 10.0
-
-    for epoch in range(num_epochs):
-        print('Epoch {}/{}'.format(epoch, num_epochs - 1))
-        print('-' * 10)
-
-        # set model to dev phase
-        net.eval()
-        logging_loss = 0.0
-        preds_list = []
-        truths_list = []
-        loss_list = []
-
-        for batch_idx, sample_batched in enumerate(data_loader):
-            x_dev = sample_batched['feature'].to(device)
-            x_dev = torch.transpose(x_dev, 1, -1)
-            y_dev = sample_batched['label']
-            # y_train = y_train.to(dtype=torch.long)
-            y_dev = y_dev.to(device)
-            output = net(x_dev)
-            loss = criterion(output, y_dev)
-            logging_loss += loss.item()
-            preds = torch.argmax(output, dim=1)
-            preds_list.append(preds.cpu().detach().numpy())
-            truths_list.append(y_dev.cpu().detach().numpy())
-        uar = recall_score(truths_list, preds_list, average='macro')
-        epoch_loss = logging_loss / len(data_loader.dataset)
-        print('Loss: {:.4f} - UAR: {}'.format(epoch_loss, uar / len(data_loader.dataset)))
-
-        return preds_list, truths_list
-
-
 if __name__ == '__main__':
-    train_model(data_loader=train_loader, num_epochs=args.num_epochs)
-    preds_list, truths_list = eval_model(data_loader=dev_loader, num_epochs=args.num_epochs)
+    train_model(data_loader=train_dev_loader, num_epochs=args.num_epochs)

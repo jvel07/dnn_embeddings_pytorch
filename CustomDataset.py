@@ -16,7 +16,7 @@ import utils
 
 class CustomDataset(Dataset):
 
-    def __init__(self, file_labels, audio_dir, online=True, feats_fir=None, calc_flevel=None):
+    def __init__(self, file_labels, audio_dir, max_length_sec, online=True, feats_fir=None, calc_flevel=None):
         """ Class to load a custom Dataset. Can be used as an input for the DataLoader.
         Args:
             file_labels (string): Path to the csv file with the labels.
@@ -27,15 +27,18 @@ class CustomDataset(Dataset):
                                         'online'=False). Default: None.
             calc_flevel (callable, optional): Optional calculation to be applied on a sample. E.g. compute fbanks
                                             or MFCCs of the audio signals. Use when online=True.
+            max_length_sec (int): Maximum length in seconds to keep from the utterances.
         :return dictionary {
         """
         name_set = os.path.basename(feats_fir)
-        self.list_feature_files = utils.get_files_abspaths(path=feats_fir, file_type='.npy')
         self.labels = utils.load_labels(file_labels, name_set)
         self.list_wavs = utils.get_files_abspaths(path=audio_dir + name_set, file_type='.wav')
         self.name_set = name_set
         self.calc_flevel = calc_flevel
         self.online = online
+        self.max_length_sec = max_length_sec
+        if not online:
+            self.list_feature_files = utils.get_files_abspaths(path=feats_fir, file_type='.npy')
 
     def __len__(self):
         return len(self.labels)
@@ -45,11 +48,12 @@ class CustomDataset(Dataset):
         class_id = self.labels[idx]
         wav_name = os.path.basename(os.path.splitext(wav_file)[0])  # getting the basename of the wav
         name_set = self.name_set
+        max_length_sec = self.max_length_sec
 
         if self.online:
             self.feats_info = None
             # waveform = utils.load_wav(wav_file, sr=16000, min_dur_sec=4)
-            waveform = utils.load_wav_torch(wav_file, max_length_in_seconds=5, pad_and_truncate=True)
+            waveform = utils.load_wav_torch(wav_file, max_length_in_seconds=max_length_sec, pad_and_truncate=True)
             sample = {
                 'wave': waveform, 'label': class_id#, 'wav_file': wav_name
             }

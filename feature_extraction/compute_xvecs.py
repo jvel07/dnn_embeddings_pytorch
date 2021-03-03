@@ -19,7 +19,7 @@ from dnn_models import *
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('-model_type', default='xvecTDNN', help='Choose from dnn_models.py ')
-    parser.add_argument('-num_classes', default=10, type=int, help='Number of output labels for model')
+    parser.add_argument('-num_classes', default=10892, type=int, help='Number of output labels for model')
     parser.add_argument('-layer_name', default='fc1', help="DNN layer for extracting the embeddings")
     parser.add_argument('-n_proc', default=0, type=int,
                         help='Number of parallel processes. Default=0 (Number of input directory splits)')

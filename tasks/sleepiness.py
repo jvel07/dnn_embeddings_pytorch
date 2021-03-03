@@ -20,7 +20,7 @@ list_c = [1e-6, 1e-5, 1e-4, 1e-3, 0.01, 0.1]
 dev_preds_dic = {}
 feat = 'spec'
 x_train, x_dev, x_test, y_train, y_dev, y_test, file_n = load_data_full(
-                                                            data_path='../data/sleepiness/spectrogram/xvecs',
+                                                            data_path='../data/sleepiness/spectrogram/xvecs_3',
                                                             layer_name='fc1')
 
 x_combined = np.concatenate((x_train, x_dev))
