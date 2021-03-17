@@ -94,7 +94,7 @@ class FLevelFeatsTorch(object):
             # Compute features
             feat = execute_extraction_function(feat_type=self.feat_type, waveform=waveform, **params)
             delta1 = torchaudio.functional.compute_deltas(feat)  # compute 1st order
-            delta2 = torchaudio.functional.compute_deltas(delta1)
+            delta2 = torchaudio.functional.compute_deltas(delta1)  # compute 2nd order
             feat = torch.cat((feat, delta1, delta2), 1)
             # Save features if asked for
             out_dir = out_dir + '/{0}/{1}/'.format(self.feat_type, name_set)

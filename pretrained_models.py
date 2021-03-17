@@ -7,7 +7,7 @@ import time
 
 from sklearn.metrics import recall_score
 from torch.utils.data import DataLoader
-from torchvision.models import resnet34
+from torchvision.models import resnet101
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -19,17 +19,17 @@ from CustomDataset import CustomDataset
 from feature_extraction import get_feats
 
 # task (name of the dataset)
-task = 'sleepiness'
+task = 'CovidSpeech'
 # in and out dirs
 corpora_dir = '/media/jose/hk-data/PycharmProjects/the_speech/audio/'
 out_dir = 'data/' + task
 task_audio_dir = corpora_dir + task + '/'
 
-# Get model params
-parser = train_utils.get_train_params()
+# Get params
+parser = train_utils.get_train_params(task, 'mfcc')
 args = parser.parse_args()
 if not args.online and (args.feat_dir_train is None or args.feat_dir_dev is None):
-    parser.error("When -online=False, please specify -feat_dir_train adn -feat_dir_dev.")
+    parser.error("When -online=False, please specify -feat_dir_train and -feat_dir_dev.")
 
 # Loading the data
 train_set = CustomDataset(file_labels=args.labels, audio_dir=task_audio_dir, online=args.online,
@@ -52,9 +52,9 @@ dev_loader = DataLoader(dataset=dev_set, batch_size=args.batch_size, shuffle=Fal
 
 
 # Defining the pretrained model
-def use_resnet34(num_classes):
+def use_resnet(num_classes):
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    resnet_model = resnet34(pretrained=True)
+    resnet_model = resnet101(pretrained=True)
     # adapting number of classes
     resnet_model.fc = nn.Linear(512, num_classes)
     # adapting number of channels from 3 (originally) to 1
@@ -65,7 +65,10 @@ def use_resnet34(num_classes):
 
 
 # Instantiating resnet
-net, device = use_resnet34(args.num_classes)
+net, device = use_resnet(args.num_classes)
+# or load the resnet re-trained on customized data
+# net.load_state_dict(torch.load('data/sleepiness/melspecT/models/checkpoint_50'))
+# net.eval()
 
 # Optimizer and scheduler
 optimizer = torch.optim.Adam(net.parameters(), lr=args.base_LR)
@@ -82,21 +85,22 @@ cyclic_lr_scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer,
 
 # Train model
 def train_model(_train_loader, num_epochs):
+    best_loss = 10
 
     for epoch in range(num_epochs):
-        print('Epoch {}/{}'.format(epoch, num_epochs - 1))
         print('-' * 10)
+        print('Epoch {}/{}'.format(epoch, num_epochs - 1))
 
-        # set model to train phase
-        net.train()
+        net.train()  # set model to train phase
         logging_loss = 0.0
         resnet_train_losses = []
-        resnet_valid_losses = []
+        preds_list = []
+        truths_list = []
         batch_losses = []
 
         for batch_idx, sample_batched in enumerate(_train_loader):
             batch_losses = []
-            x_train = sample_batched['feature'].to(device)#.squeeze()
+            x_train = sample_batched['feature'].to(device).unsqueeze(1)#.squeeze()
             # x_train = torch.transpose(x_train, 1, -1)#.unsqueeze(1)
             y_train = sample_batched['label'].to(device)
             optimizer.zero_grad()
@@ -106,19 +110,31 @@ def train_model(_train_loader, num_epochs):
             batch_losses.append(loss.item())  # stats
             optimizer.step()  # updating weights
         resnet_train_losses.append(batch_losses)
-        print(f'Epoch - {epoch} Train-Loss : {np.mean(resnet_train_losses[-1])}')
+        cyclic_lr_scheduler.step()
+        uar = recall_score(truths_list, preds_list, average='macro')
+        epoch_loss = logging_loss / len(_train_loader.dataset)
+        print(f'Epoch - {epoch} / {num_epochs-1} Train-Loss : {np.mean(resnet_train_losses[-1])} '
+              f'UAR: {uar} - epoch-loss: {epoch_loss}')
+        if epoch_loss < best_loss:
+            best_loss = epoch_loss
+            # best_model_wts = copy.deepcopy(net.state_dict())
+            # Save checkpoint
+            torch.save({
+                'epoch': epoch,
+                'model_state_dict': net.state_dict(),
+                'optimizer_state_dict': optimizer.state_dict(),
+                'loss': best_loss,
+            }, '{}/models/checkpoint_{}'.format(args.model_out_dir, epoch))
 
 
 def eval_model(_dev_loader, num_epochs):
 
     for epoch in range(num_epochs):
-        print('Epoch {}/{}'.format(epoch, num_epochs - 1))
         print('-' * 10)
+        print('Epoch {}/{}'.format(epoch, num_epochs - 1))
 
         resnet_valid_losses = []
-        batch_losses = []
-        # set model to eval phase
-        net.eval()
+        # net.eval()  # set model to eval phase
         batch_losses = []
         preds_list = []
         truths_list = []
@@ -141,7 +157,7 @@ def eval_model(_dev_loader, num_epochs):
 
 
 if __name__ == '__main__':
-    train_model(train_loader, 50)
-    eval_model(dev_loader, 50)
+    train_model(train_loader, 32)
+    # eval_model(dev_loader, 16)
 
 

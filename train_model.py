@@ -137,7 +137,7 @@ def train_model(data_loader, num_epochs):
                 'epoch': epoch,
                 'model_state_dict': net.state_dict(),
                 'optimizer_state_dict': optimizer.state_dict(),
-                'loss': loss,
+                'loss': best_loss,
             }, '{}/checkpoint_{}'.format(save_dir, epoch))
 
     time_elapsed = time.time() - since

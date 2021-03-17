@@ -125,14 +125,14 @@ def load_labels(filepath, name_set):
     :return object
     """
 
-    df = pd.read_csv(filepath, delimiter=',')
-    # df['label'] = df['label'].astype('category')
-    # df['cat_lbl'] = df['label'].cat.codes
-    df_labels = df[df['file_name'].str.match(name_set)]
-    labels = df_labels.label.values
+    df = pd.read_csv(filepath+'/{}_orig.csv'.format(name_set), delimiter=',')
+    df['label'] = df['label'].astype('category')
+    df['cat_lbl'] = df['label'].cat.codes
+    df_labels = df[df['filename'].str.match(name_set)]
+    labels = df_labels.cat_lbl.values
     # le = preprocessing.LabelEncoder()
     # labels = le.fit_transform(labels)
-    labels = torch.from_numpy(np.asarray(labels).astype('int64'))
+    # labels = torch.from_numpy(np.asarray(labels).astype('int64'))
     # labels_hot = torch.nn.functional.one_hot(labels)
 
     return labels#, df_labels.file_name.values
