@@ -2,6 +2,7 @@
 Created by José Vicente Egas López
 on 2021. 02. 09. 14 40
 
+Stand alone script to compute frame-level features offline
 """
 import sys
 sys.path.append('../')

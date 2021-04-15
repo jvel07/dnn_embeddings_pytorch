@@ -69,20 +69,22 @@ def get_train_params(task, flevel):
     parser.add_argument('-labels', default='data/{}/labels'.format(task), required=False,
                         help='Path to the folder containing the files with the labels.')
     parser.add_argument('-feats_dir_train', default='data/{}/{}/train'.format(task,flevel),
-                        help='Path to the folder containing the features.')
+                        help='Path to the folder containing the TRAIN features.')
     parser.add_argument('-feats_dir_dev', default='data/{}/{}/dev'.format(task, flevel),
-                        help='Path to the folder containing the features.')
+                        help='Path to the folder containing the DEV features.')
+    parser.add_argument('-feats_dir_test', default='data/{}/{}/test'.format(task, flevel),
+                        help='Path to the folder containing the TEST features.')
     parser.add_argument('-model_out_dir', default='data/{}/{}'.format(task, flevel),
                         help='Path to the folder containing the features.')
 
-    parser.add_argument('-input_dim', action="store_true", default=23)
+    parser.add_argument('-input_dim', action="store_true", default=40)
     parser.add_argument('-num_classes', action="store_true", default=2)
-    parser.add_argument('-batch_size', action="store_true", default=32)
+    parser.add_argument('-batch_size', action="store_true", default=16)
     parser.add_argument('-num_epochs', action="store_true", default=20)
 
     parser.add_argument('-training_mode', default='init', help='(init) Train from scratch, (resume) Resume training, '
                                                                '(finetune) Finetune a pretrained model')
-    parser.add_argument('-model_type', default='resnet101', help='DNN Model class. Check dnn_models.py')
+    parser.add_argument('-model_type', default='TransformerPrime', help='DNN Model class. Check dnn_models.py')
     parser.add_argument('-base_LR', default=1e-3, type=float, help='Initial LR')
     parser.add_argument('-max_LR', default=2e-3, type=float, help='Maximum LR')
 

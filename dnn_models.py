@@ -3,22 +3,23 @@ import torchvision
 import torchvision.transforms as transforms
 import torch.nn as nn
 import torch.nn.functional as F
+from torchsummary import summary
 import torch.optim as optim
 import pandas as pd
 import numpy as np
 from torchvision.models import resnet34
 
-'''
-TDNN as defined by https://www.danielpovey.com/files/2015_interspeech_multisplice.pdf
-
-Context size and dilation determine the frames selected, that is:
-    context size 5 and dilation 1 is equivalent to [-2,-1,0,1,2]
-    context size 3 and dilation 2 is equivalent to [-2, 0, 2]
-    context size 1 and dilation 1 is equivalent to [0]
-'''
-
 
 class xvecTDNN(nn.Module):
+    """
+    TDNN as defined by https://www.danielpovey.com/files/2015_interspeech_multisplice.pdf
+
+    Context size and dilation determine the frames selected, that is:
+        context size 5 and dilation 1 is equivalent to [-2,-1,0,1,2]
+        context size 3 and dilation 2 is equivalent to [-2, 0, 2]
+        context size 1 and dilation 1 is equivalent to [0]
+    """
+
     def __init__(self, input_dim, n_classes, p_dropout=0):
         super(xvecTDNN, self).__init__()
         self.tdnn1 = nn.Conv1d(in_channels=input_dim, out_channels=512, kernel_size=5, dilation=1)
@@ -93,7 +94,7 @@ class TransformerPrime(nn.Module):
             activation='relu'  # ReLU: avoid saturation/tame gradient/reduce compute time
         )
 
-        # I'm using 4 instead of the 6 identical stacked encoder layers used in Attention is All You Need paper
+        # Using 4 instead of the 6 identical stacked encoder layers used in Attention is All You Need paper
         # Complete transformer block contains 4 full transformer encoder layers
         # (each w/ multi-head self-attention+feedforward)
         self.transformer_encoder = nn.TransformerEncoder(transformer_layer, num_layers=4)
@@ -192,16 +193,18 @@ class TransformerPrime(nn.Module):
         # Each full convolution block outputs (64*1*8) embedding flattened to dim 512 1D array
         # Full transformer block outputs 40*70 feature map, which we time-avg to dim 40 1D array
         # 512*2+40 == 1064 input features --> 8 output emotions
-        self.fc1_linear = nn.Linear(512 * 2 + 40, num_classes)
+        # self.fc1_linear = nn.Linear(512 * 2 + 40, num_classes)
+        self.fc1_linear = nn.Linear(10024, 1)
 
         ### Softmax layer for the 8 output logits from final FC linear layer
-        self.softmax_out = nn.Softmax(dim=1)  # dim==1 is the freq embedding
+        # self.softmax_out = nn.Softmax(dim=1)  # dim==1 is the freq embedding
+        self.last_out = nn.Sigmoid()
 
     # define one complete parallel fwd pass of input feature tensor thru 2*conv+1*transformer blocks
     def forward(self, x):
         # 1st parallel Conv2D block: 4 Convolutional layers ############################
         # create final feature embedding from 1st convolutional layer
-        # input features pased through 4 sequential 2D convolutional layers
+        # input features passed through 4 sequential 2D convolutional layers
         conv2d_embedding1 = self.conv2Dblock1(x)  # x == N/batch * channel * freq * time
 
         # flatten final 64*1*8 feature map from convolutional layers to length 512 1D array
@@ -237,13 +240,17 @@ class TransformerPrime(nn.Module):
 
         # concatenate freq embeddings from convolutional and transformer blocks ######
         # concatenate embedding tensors output by parallel 2*conv and 1*transformer blocks
+        # print(conv2d_embedding1.shape)
+        # print(conv2d_embedding2.shape)
+        # print(transformer_embedding.shape)
         complete_embedding = torch.cat([conv2d_embedding1, conv2d_embedding2, transformer_embedding], dim=1)
-
+        # print(complete_embedding.shape)
         # final FC linear layer, need logits for loss #########################
         output_logits = self.fc1_linear(complete_embedding)
 
         # Final Softmax layer: use logits from FC linear, get softmax for prediction ######
-        output_softmax = self.softmax_out(output_logits)
+        # output_softmax = self.softmax_out(output_logits)
+        output = self.last_out(output_logits)
 
         # need output logits to compute cross entropy loss, need softmax probabilities to predict class
-        return output_logits, output_softmax
+        return output_logits, output

@@ -114,18 +114,19 @@ def read_conf_file(file_name, conf_section):
     return dict_section_values
 
 
-def load_labels(filepath, name_set):
+def load_labels(labels_dir, name_set):
     """
     Loads labels from a file of containing the form, e.g.:
                                         file_name,label
                                         train_0001.wav,7
     Args:
-        filepath (string): Path to the file containing the features.
+        labels_dir (string): Path to the folder containing the labels file.
         name_set (string): Set of the labels (train, dev, test)
     :return object
     """
 
-    df = pd.read_csv(filepath+'/{}_orig.csv'.format(name_set), delimiter=',')
+    # df = pd.read_csv(filepath+'/{}_orig.csv'.format(name_set), delimiter=',')
+    df = pd.read_csv(labels_dir+'/labels.csv', delimiter=',')
     df['label'] = df['label'].astype('category')
     df['cat_lbl'] = df['label'].cat.codes
     df_labels = df[df['filename'].str.match(name_set)]

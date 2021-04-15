@@ -65,42 +65,54 @@ class FLevelFeatsTorch(object):
         # frame-level feats params/config
         params = utils.read_conf_file(file_name=config_file, conf_section='DEFAULTS')
 
-        # Compute without derivatives
-        if deltas == 0:
-            # Compute features
-            feat = execute_extraction_function(feat_type=self.feat_type, waveform=waveform, **params)
-            # Save features if asked for
-            out_dir = out_dir + '/{0}/{1}/'.format(self.feat_type, name_set)
-            if save:
-                utils.save_features(out_dir, self.feat_type, wav_file, feat)
-                utils.copy_conf(config_file, out_dir, self.feat_type)
-            feature = {'feature': feat, 'label': label}
-            return feature
+        # check if features are already computed if features do not exist, then compute them
+        wav_name = os.path.splitext(os.path.basename(wav_file))[0]
+        file_name = '/{0}_{1}'.format(self.feat_type, wav_name)
+        feat_file_path = out_dir + '/' + file_name
+        if not os.path.isfile(feat_file_path):
+            # Compute without derivatives
+            if deltas == 0:
+                # Compute features
+                feat = execute_extraction_function(feat_type=self.feat_type, waveform=waveform, **params)
+                # Save features if asked for
+                out_dir = out_dir + '/{0}/{1}/'.format(self.feat_type, name_set)
+                if save:
+                    utils.save_features(out_dir, self.feat_type, wav_file, feat)
+                    utils.copy_conf(config_file, out_dir, self.feat_type)
+                feature = {'feature': feat, 'label': label}
+                return feature
 
-        # Compute derivatives if asked for
-        if deltas == 1:
-            # Compute features
-            feat = execute_extraction_function(feat_type=self.feat_type, waveform=waveform, **params)
-            delta1 = torchaudio.functional.compute_deltas(feat)  # compute 1st order
-            feat = torch.cat((feat, delta1), 1)
-            # Save features if asked for
-            out_dir = out_dir + '/{0}/{1}/'.format(self.feat_type, name_set)
-            if save:
-                utils.save_features(out_dir, self.feat_type, '{0}_{1}del'.format(wav_file, deltas), feat)
-                utils.copy_conf(config_file, out_dir, self.feat_type)
-            feature = {'feature': feat, 'label': label}
-            return feature
-        if deltas == 2:
-            # Compute features
-            feat = execute_extraction_function(feat_type=self.feat_type, waveform=waveform, **params)
-            delta1 = torchaudio.functional.compute_deltas(feat)  # compute 1st order
-            delta2 = torchaudio.functional.compute_deltas(delta1)  # compute 2nd order
-            feat = torch.cat((feat, delta1, delta2), 1)
-            # Save features if asked for
-            out_dir = out_dir + '/{0}/{1}/'.format(self.feat_type, name_set)
-            if save:
-                utils.save_features(out_dir, self.feat_type, '{0}_{1}del'.format(wav_file, deltas), feat)
-                utils.copy_conf(config_file, out_dir, self.feat_type)
+            # Compute derivatives if asked for
+            if deltas == 1:
+                # Compute features
+                feat = execute_extraction_function(feat_type=self.feat_type, waveform=waveform, **params)
+                delta1 = torchaudio.functional.compute_deltas(feat)  # compute 1st order
+                feat = torch.cat((feat, delta1), 1)
+                # Save features if asked for
+                out_dir = out_dir + '/{0}/{1}/'.format(self.feat_type, name_set)
+                if save:
+                    utils.save_features(out_dir, self.feat_type, '{0}_{1}del'.format(wav_file, deltas), feat)
+                    utils.copy_conf(config_file, out_dir, self.feat_type)
+                feature = {'feature': feat, 'label': label}
+                return feature
+
+            if deltas == 2:
+                # Compute features
+                feat = execute_extraction_function(feat_type=self.feat_type, waveform=waveform, **params)
+                delta1 = torchaudio.functional.compute_deltas(feat)  # compute 1st order
+                delta2 = torchaudio.functional.compute_deltas(delta1)  # compute 2nd order
+                feat = torch.cat((feat, delta1, delta2), 1)
+                # Save features if asked for
+                out_dir = out_dir + '/{0}/{1}/'.format(self.feat_type, name_set)
+                if save:
+                    utils.save_features(out_dir, self.feat_type, '{0}_{1}del'.format(wav_file, deltas), feat)
+                    utils.copy_conf(config_file, out_dir, self.feat_type)
+                feature = {'feature': feat, 'label': label}
+                return feature
+
+        # if features exist, then LOAD them
+        else:
+            feat = np.load(feat_file_path)
             feature = {'feature': feat, 'label': label}
             return feature
 
@@ -173,6 +185,7 @@ def extract_xvecs(source_path, out_dir, net, layer_name):
     def get_activation(name):
         def hook(model, input, output):
             activation[name] = output.detach()
+
         return hook
 
     eval('net.{}.register_forward_hook(get_activation(layer_name))'.format(layer_name))
@@ -189,7 +202,6 @@ def extract_xvecs(source_path, out_dir, net, layer_name):
     print("x-vecs saved to {}".format(out_dir))
 
     return xvecs
-
 
 
 # def train_gmm(features, )
@@ -226,4 +238,3 @@ class FisherVectors(object):
 
         # extract Fisher vectors
         # fish = extract_fishers(feature)
-

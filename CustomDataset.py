@@ -57,6 +57,9 @@ class CustomDataset(Dataset):
             sample = {
                 'wave': waveform, 'label': class_id#, 'wav_file': wav_name
             }
+            if self.calc_flevel:
+                sample = self.calc_flevel(sample, wav_name, name_set)
+
         else:
             self.online = False
             feat_file_path = self.list_feature_files[idx]
@@ -64,8 +67,6 @@ class CustomDataset(Dataset):
             sample = {
                 'feature': features, 'label': class_id
             }
-        if self.online and self.calc_flevel:
-            sample = self.calc_flevel(sample, wav_name, name_set)
 
         return sample
 
