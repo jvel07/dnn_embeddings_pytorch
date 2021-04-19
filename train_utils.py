@@ -4,6 +4,7 @@ on 2021. 02. 01. 13 00
 
 """
 import argparse
+import glob
 import os
 from datetime import datetime
 # from prettytable import PrettyTable
@@ -19,21 +20,37 @@ import torch
 
 
 def prepare_model(args):
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     if args.training_mode == 'init':
-        device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-
         print('Initializing Model...')
-        step = 0
-        net = eval('dnn_models.{0}({1}, {2}, p_dropout=0.4)'.format(args.model_type, args.input_dim, args.num_classes))
+        epoch = 0
+        loss = 10.0
+        net = eval('dnn_models.{0}({1}, {2}, p_dropout=0.4)'.format(args.model_type, args.input_dim, args.net_output))
         print(net)
         net.to(device)
         optimizer = torch.optim.Adam(net.parameters(), lr=args.base_LR)
-
         event_ID = datetime.now().strftime('%Y%m-%d%H-%M%S')
         save_dir = '{}/models/modelType_{}_event_{}'.format(args.model_out_dir, args.model_type, event_ID)
         os.makedirs(save_dir)
 
-        return net, optimizer, step, save_dir
+        #return net, optimizer, step, save_dir
+
+    elif args.training_mode == 'resume':
+        print('Loading trained model...')
+        # select the latest model from modelDir
+        model_file = max(glob.glob(args.model_out_dir+'/*'), key=os.path.getctime)
+        net = eval('dnn_models.{0}({1}, {2}, p_dropout=0.4)'.format(args.model_type, args.input_dim, args.net_output))
+        optimizer = torch.optim.Adam(net.parameters(), lr=args.base_LR)
+        # Load model params
+        checkpoint = torch.load(model_file, map_location=device)
+        net.load_state_dict(checkpoint['state_dict'])
+        optimizer.load_state_dict(checkpoint['optimizer'])
+        epoch = checkpoint['epoch']
+        loss = checkpoint['loss']
+        save_dir = args.mmodel_out_dir
+
+    return net, optimizer, epoch, save_dir, loss
+
 
 
 def count_parameters(model):
@@ -75,12 +92,12 @@ def get_train_params(task, flevel):
     parser.add_argument('-feats_dir_test', default='data/{}/{}/test'.format(task, flevel),
                         help='Path to the folder containing the TEST features.')
     parser.add_argument('-model_out_dir', default='data/{}/{}'.format(task, flevel),
-                        help='Path to the folder containing the features.')
+                        help='Path to the folder containing the model.')
 
     parser.add_argument('-input_dim', action="store_true", default=40)
-    parser.add_argument('-num_classes', action="store_true", default=2)
-    parser.add_argument('-batch_size', action="store_true", default=16)
-    parser.add_argument('-num_epochs', action="store_true", default=20)
+    parser.add_argument('-net_output', action="store_true", default=1)
+    parser.add_argument('-batch_size', action="store_true", default=32)
+    parser.add_argument('-num_epochs', action="store_true", default=100)
 
     parser.add_argument('-training_mode', default='init', help='(init) Train from scratch, (resume) Resume training, '
                                                                '(finetune) Finetune a pretrained model')

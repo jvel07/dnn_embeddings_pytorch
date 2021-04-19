@@ -72,20 +72,7 @@ test_loader = DataLoader(dataset=test_set, batch_size=args.batch_size, shuffle=F
 
 
 
-# Set the GPU
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-# prepare the model
-net, optimizer, step, save_dir = train_utils.prepare_model(args)
-criterion = nn.BCEWithLogitsLoss()
-# LR scheduler
-cyclic_lr_scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer,
-                                                          max_lr=args.max_LR,
-                                                          cycle_momentum=False,
-                                                          div_factor=5,
-                                                          final_div_factor=1e+3,
-                                                          total_steps=args.num_epochs * len(train_dev_loader),
-                                                          # * numBatchesPerArk,
-                                                          pct_start=0.15)
+
 
 
 # Decay LR by a factor of 0.1 every 7 epochs
@@ -93,25 +80,37 @@ cyclic_lr_scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer,
 
 
 # Train model
-def train_model(data_loader, num_epochs):
+def train_model(data_loader_train, data_loader_eval, num_epochs):
     since = time.time()
-
-    best_model_wts = copy.deepcopy(net.state_dict())
-    best_loss = 10.0
-    iter = 0
+    # Set the GPU
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    # prepare the model
+    net, optimizer, epoch_n, save_dir, loss = train_utils.prepare_model(args)
+    criterion = nn.BCEWithLogitsLoss()
+    # LR scheduler
+    cyclic_lr_scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer,
+                                                              max_lr=args.max_LR,
+                                                              cycle_momentum=False,
+                                                              div_factor=5,
+                                                              final_div_factor=1e+3,
+                                                              total_steps=args.num_epochs * len(train_dev_loader),
+                                                              # * numBatchesPerArk,
+                                                              pct_start=0.15)
+    best_loss = loss
+    num_epochs = num_epochs - epoch_n
 
     for epoch in range(num_epochs):
         # set model to train phase
         net.train()
-        print('Epoch {}/{}'.format(epoch, num_epochs - 1))
         print('-' * 10)
+        print('Epoch {}/{}'.format(epoch, num_epochs - 1))
 
         logging_loss = 0.0
         preds_list = []
         truths_list = []
         loss_list = []
 
-        for batch_idx, sample_batched in enumerate(data_loader):
+        for batch_idx, sample_batched in enumerate(data_loader_train):
             x_train = sample_batched['feature'].to(device)
             x_train = torch.transpose(x_train, 1, -1).unsqueeze(1)
             # print(x_train.shape)
@@ -139,7 +138,7 @@ def train_model(data_loader, num_epochs):
             # loss_list.append(logging_loss / len(data_loader.dataset))
             cyclic_lr_scheduler.step()
         # uar = recall_score(np.hstack(truths_list), np.hstack(preds_list), average='macro')
-        epoch_loss = logging_loss / len(data_loader.dataset)
+        epoch_loss = logging_loss / len(data_loader_train.dataset)
         print('Loss: {:.4f}'.format(epoch_loss))
 
         if epoch_loss < best_loss:
@@ -148,11 +147,10 @@ def train_model(data_loader, num_epochs):
             # Save checkpoint
             torch.save({
                 'epoch': epoch,
-                'model_state_dict': net.state_dict(),
-                'optimizer_state_dict': optimizer.state_dict(),
+                'state_dict': net.state_dict(),
+                'optimizer': optimizer.state_dict(),
                 'loss': best_loss,
             }, '{}/checkpoint_{}'.format(save_dir, epoch))
-
 
     time_elapsed = time.time() - since
     print('Training complete in {:.0f}m {:.0f}s'.format(time_elapsed // 60, time_elapsed % 60))
@@ -174,7 +172,7 @@ def train_model(data_loader, num_epochs):
         truths_list = []
         loss_list = []
 
-        for batch_idx, sample_batched in enumerate(data_loader):
+        for batch_idx, sample_batched in enumerate(data_loader_eval):
             x_dev = sample_batched['feature'].to(device)
             x_dev = torch.transpose(x_dev, 1, -1)
             y_dev = sample_batched['label']
@@ -187,9 +185,8 @@ def train_model(data_loader, num_epochs):
             preds_list.append(preds.cpu().detach().numpy())
             truths_list.append(y_dev.cpu().detach().numpy())
         uar = recall_score(np.hstack(truths_list), np.hstack(preds_list), average='macro')
-        epoch_loss = logging_loss / len(data_loader.dataset)
+        epoch_loss = logging_loss / len(data_loader_eval.dataset)
         print('Loss: {:.4f} - UAR: {}'.format(epoch_loss, uar))
-
 
 
 def eval_model(data_loader, num_epochs):
@@ -228,5 +225,5 @@ def eval_model(data_loader, num_epochs):
 
 
 if __name__ == '__main__':
-    train_model(data_loader=train_dev_loader, num_epochs=args.num_epochs)
+    train_model(data_loader_train=train_dev_loader, data_loader_eval=test_loader, num_epochs=args.num_epochs)
     # preds_list, truths_list = eval_model(data_loader=dev_loader, num_epochs=args.num_epochs)
