@@ -49,8 +49,7 @@ def prepare_model(args):
         loss = checkpoint['loss']
         save_dir = args.mmodel_out_dir
 
-    return net, optimizer, epoch, save_dir, loss
-
+    return net.to(device), optimizer, epoch, save_dir, loss
 
 
 def count_parameters(model):

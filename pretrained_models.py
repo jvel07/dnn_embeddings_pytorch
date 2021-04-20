@@ -19,7 +19,7 @@ from CustomDataset import CustomDataset
 from feature_extraction import get_feats
 
 # task (name of the dataset)
-task = 'CovidSpeech'
+task = 'mask'
 # in and out dirs
 corpora_dir = '/media/jose/hk-data/PycharmProjects/the_speech/audio/'
 out_dir = 'data/' + task
@@ -33,7 +33,7 @@ if not args.online and (args.feat_dir_train is None or args.feat_dir_dev is None
 
 # Loading the data
 train_set = CustomDataset(file_labels=args.labels, audio_dir=task_audio_dir, online=args.online,
-                          feats_fir=args.feats_dir_train, max_length_sec=25,
+                          feats_fir=args.feats_dir_train, max_length_sec=1,
                           calc_flevel=get_feats.FLevelFeatsTorch(save=True, out_dir=out_dir,
                                                                  feat_type=args.feat_type,
                                                                  deltas=args.deltas, config_file=args.config_file)
@@ -42,7 +42,7 @@ train_loader = DataLoader(dataset=train_set, batch_size=args.batch_size, shuffle
                           num_workers=0, drop_last=False, pin_memory=True)
 
 dev_set = CustomDataset(file_labels=args.labels, audio_dir=task_audio_dir, online=args.online,
-                        feats_fir=args.feats_dir_dev, max_length_sec=25,
+                        feats_fir=args.feats_dir_dev, max_length_sec=1,
                         calc_flevel=get_feats.FLevelFeatsTorch(save=True, out_dir=out_dir,
                                                                feat_type=args.feat_type,
                                                                deltas=args.deltas, config_file=args.config_file)
@@ -51,40 +51,74 @@ dev_loader = DataLoader(dataset=dev_set, batch_size=args.batch_size, shuffle=Fal
                         num_workers=0, drop_last=False, pin_memory=True)
 
 
+# Concatenating Datasets for training with Train and Dev
+train_dev_sets = torch.utils.data.ConcatDataset([train_set, dev_set])
+train_dev_loader = DataLoader(dataset=train_dev_sets, batch_size=args.batch_size, shuffle=False, num_workers=0,
+                              drop_last=False, pin_memory=True)
+
+test_set = CustomDataset(file_labels=args.labels, audio_dir=task_audio_dir, online=args.online,
+                         feats_fir=args.feats_dir_test, max_length_sec=1,
+                         calc_flevel=get_feats.FLevelFeatsTorch(save=True, out_dir=out_dir,
+                                                                feat_type=args.feat_type,
+                                                                deltas=args.deltas, config_file=args.config_file)
+                         )
+test_loader = DataLoader(dataset=test_set, batch_size=args.batch_size, shuffle=False,
+                         num_workers=0, drop_last=False, pin_memory=True)
+
+
 # Defining the pretrained model
-def use_resnet(num_classes):
+def use_resnet(net_output, binary_class=False):
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     resnet_model = resnet101(pretrained=True)
-    # adapting number of classes
-    resnet_model.fc = nn.Linear(512, num_classes)
+    # freeze pretrained layers
+    for param in resnet_model.parameters():
+        param.requires_grad = False
     # adapting number of channels from 3 (originally) to 1
     resnet_model.conv1 = nn.Conv2d(1, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False)
+    # redefine/adapt final fc layer
+    if binary_class:
+        net_output = 1
+        resnet_model.out = nn.Sequential(nn.Linear(2048, 512),
+                                         nn.ReLU(),
+                                         nn.Dropout(0.3),
+                                         nn.Linear(512, net_output),
+                                         nn.Sigmoid()
+                                         )
+        # Optimizer and scheduler
+        optimizer = torch.optim.Adam(resnet_model.parameters(), lr=args.base_LR)
+        criterion = nn.BCEWithLogitsLoss()
+    else:
+        resnet_model.out = nn.Sequential(nn.Linear(2048, 512),
+                                         nn.ReLU(),
+                                         nn.Dropout(0.3),
+                                         nn.Linear(512, net_output),
+                                         nn.Softmax(dim=1)
+                                         )
+        # Optimizer and scheduler
+        optimizer = torch.optim.Adam(resnet_model.parameters(), lr=args.base_LR)
+        criterion = nn.CrossEntropyLoss()
+
     resnet_model = resnet_model.to(device)
 
-    return resnet_model, device
-
-
-# Instantiating resnet
-net, device = use_resnet(args.num_classes)
-# or load the resnet re-trained on customized data
-# net.load_state_dict(torch.load('data/sleepiness/melspecT/models/checkpoint_50'))
-# net.eval()
-
-# Optimizer and scheduler
-optimizer = torch.optim.Adam(net.parameters(), lr=args.base_LR)
-criterion = nn.CrossEntropyLoss()
-# LR scheduler
-cyclic_lr_scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer,
-                                                          max_lr=args.max_LR,
-                                                          cycle_momentum=False,
-                                                          div_factor=5,
-                                                          final_div_factor=1e+3,
-                                                          total_steps=args.num_epochs * len(train_loader),
-                                                          pct_start=0.15)
+    return resnet_model, device, optimizer, criterion
 
 
 # Train model
 def train_model(_train_loader, num_epochs):
+    # Instantiating resnet
+    net, device, optimizer, criterion = use_resnet(args.net_output)
+    # or load the resnet re-trained on customized data
+    # code for loading pending...
+
+    # LR scheduler
+    cyclic_lr_scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer,
+                                                              max_lr=args.max_LR,
+                                                              cycle_momentum=False,
+                                                              div_factor=5,
+                                                              final_div_factor=1e+3,
+                                                              total_steps=args.num_epochs * len(_train_loader),
+                                                              pct_start=0.15)
+
     best_loss = 10
 
     for epoch in range(num_epochs):

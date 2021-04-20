@@ -194,7 +194,7 @@ class TransformerPrime(nn.Module):
         # Full transformer block outputs 40*70 feature map, which we time-avg to dim 40 1D array
         # 512*2+40 == 1064 input features --> 8 output emotions
         # self.fc1_linear = nn.Linear(512 * 2 + 40, num_classes)
-        self.fc1_linear = nn.Linear(10024, net_output)
+        self.fc1_linear = nn.Linear(424, net_output)
 
         ### Softmax layer for the 8 output logits from final FC linear layer
         # self.softmax_out = nn.Softmax(dim=1)  # dim==1 is the freq embedding

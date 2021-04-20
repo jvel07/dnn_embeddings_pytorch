@@ -39,7 +39,7 @@ if not args.online and (args.feat_dir_train is None or args.feat_dir_dev is None
 
 # Loading the data
 train_set = CustomDataset(file_labels=args.labels, audio_dir=task_audio_dir, online=args.online,
-                          feats_fir=args.feats_dir_train, max_length_sec=25,
+                          feats_fir=args.feats_dir_train, max_length_sec=1,
                           calc_flevel=get_feats.FLevelFeatsTorch(save=True, out_dir=out_dir,
                                                                  feat_type=args.feat_type,
                                                                  deltas=args.deltas, config_file=args.config_file)
@@ -48,7 +48,7 @@ train_loader = DataLoader(dataset=train_set, batch_size=args.batch_size, shuffle
                           num_workers=0, drop_last=False, pin_memory=True)
 
 dev_set = CustomDataset(file_labels=args.labels, audio_dir=task_audio_dir, online=args.online,
-                        feats_fir=args.feats_dir_dev, max_length_sec=25,
+                        feats_fir=args.feats_dir_dev, max_length_sec=1,
                         calc_flevel=get_feats.FLevelFeatsTorch(save=True, out_dir=out_dir,
                                                                feat_type=args.feat_type,
                                                                deltas=args.deltas, config_file=args.config_file)
@@ -62,22 +62,17 @@ train_dev_loader = DataLoader(dataset=train_dev_sets, batch_size=args.batch_size
                               drop_last=False, pin_memory=True)
 
 test_set = CustomDataset(file_labels=args.labels, audio_dir=task_audio_dir, online=args.online,
-                        feats_fir=args.feats_dir_test, max_length_sec=25,
-                        calc_flevel=get_feats.FLevelFeatsTorch(save=True, out_dir=out_dir,
-                                                               feat_type=args.feat_type,
-                                                               deltas=args.deltas, config_file=args.config_file)
-                        )
+                         feats_fir=args.feats_dir_test, max_length_sec=1,
+                         calc_flevel=get_feats.FLevelFeatsTorch(save=True, out_dir=out_dir,
+                                                                feat_type=args.feat_type,
+                                                                deltas=args.deltas, config_file=args.config_file)
+                         )
 test_loader = DataLoader(dataset=test_set, batch_size=args.batch_size, shuffle=False,
-                        num_workers=0, drop_last=False, pin_memory=True)
-
-
-
-
+                         num_workers=0, drop_last=False, pin_memory=True)
 
 
 # Decay LR by a factor of 0.1 every 7 epochs
 # cyclic_lr_scheduler = lr_scheduler.StepLR(optimizer, step_size=7, gamma=0.1)
-
 
 # Train model
 def train_model(data_loader_train, data_loader_eval, num_epochs):
@@ -93,11 +88,11 @@ def train_model(data_loader_train, data_loader_eval, num_epochs):
                                                               cycle_momentum=False,
                                                               div_factor=5,
                                                               final_div_factor=1e+3,
-                                                              total_steps=args.num_epochs * len(train_dev_loader),
+                                                              total_steps=args.num_epochs * len(data_loader_train),
                                                               # * numBatchesPerArk,
                                                               pct_start=0.15)
     best_loss = loss
-    num_epochs = num_epochs - epoch_n
+    num_epochs = num_epochs - epoch_n  # validating number of epochs when resume training
 
     for epoch in range(num_epochs):
         # set model to train phase
@@ -105,7 +100,8 @@ def train_model(data_loader_train, data_loader_eval, num_epochs):
         print('-' * 10)
         print('Epoch {}/{}'.format(epoch, num_epochs - 1))
 
-        logging_loss = 0.0
+        train_logging_loss = 0.0
+        val_logging_loss = 0.0
         preds_list = []
         truths_list = []
         loss_list = []
@@ -120,29 +116,38 @@ def train_model(data_loader_train, data_loader_eval, num_epochs):
             output_logits, output = net(x_train)  # forward prop + backward prop + optimization
             loss = criterion(output_logits, y_train.unsqueeze(1).float())
             loss.backward()
-
-            # sig = torch.nn.Sigmoid()
-            # output = sig(output_logits)
-            # preds = torch.argmax(output, dim=1)
-            # _, preds = torch.max(output, 1)
-            # adding preds and ground truths to the lists
-            # preds_list.append(preds.cpu().detach().numpy())
-            # truths_list.append(y_train.cpu().detach().numpy())
-
             # stats
-            logging_loss += loss.item() * y_train.shape[0]
+            train_logging_loss += loss.item() * y_train.shape[0]
             optimizer.step()  # updating weights
-            # iter += 1
-            # if iter % 500 == 0:
-            #     print('Loss: {:.4f}'.format(epoch_loss))
-            # loss_list.append(logging_loss / len(data_loader.dataset))
+
             cyclic_lr_scheduler.step()
         # uar = recall_score(np.hstack(truths_list), np.hstack(preds_list), average='macro')
-        epoch_loss = logging_loss / len(data_loader_train.dataset)
-        print('Loss: {:.4f}'.format(epoch_loss))
+        train_epoch_loss = train_logging_loss / len(data_loader_train.dataset)
+        print('Loss: {:.4f}'.format(train_epoch_loss))
 
-        if epoch_loss < best_loss:
-            best_loss = epoch_loss
+        # EVALUATION: set model to dev phase
+        net.eval()
+        preds_list = []
+        truths_list = []
+
+        for batch_idx, sample_batched in enumerate(data_loader_eval):
+            x_dev = sample_batched['feature'].to(device)
+            x_dev = torch.transpose(x_dev, 1, -1).unsqueeze(1)
+            y_dev = sample_batched['label'].to(device)
+            y_dev = y_dev.to(dtype=torch.long)
+            output_logits, output = net(x_dev)
+            preds = torch.argmax(output, dim=1)
+            loss = criterion(output_logits, y_dev.unsqueeze(1).float())
+            val_logging_loss += loss.item() * y_dev.shape[0]
+            preds_list.append(preds.cpu().detach().numpy())
+            truths_list.append(y_dev.cpu().detach().numpy())
+        uar = recall_score(np.hstack(truths_list), np.hstack(preds_list), average='macro')
+        val_loss = val_logging_loss / len(data_loader_eval.dataset)
+        print("Validation:")
+        print('Loss: {:.4f} - UAR: {}'.format(val_loss, uar))
+
+        if val_loss < best_loss:
+            best_loss = val_loss
             # best_model_wts = copy.deepcopy(net.state_dict())
             # Save checkpoint
             torch.save({
@@ -156,37 +161,6 @@ def train_model(data_loader_train, data_loader_eval, num_epochs):
     print('Training complete in {:.0f}m {:.0f}s'.format(time_elapsed // 60, time_elapsed % 60))
     print('Best val Acc: {:4f}'.format(best_loss))
 
-    # load best model weights
-    # net.load_state_dict(best_model_wts)
-    # return net
-
-    # EVALUATION
-    for epoch in range(num_epochs):
-        net.eval()
-        print('Epoch {}/{}'.format(epoch, num_epochs - 1))
-        print('-' * 10)
-
-        # set model to dev phase
-        logging_loss = 0.0
-        preds_list = []
-        truths_list = []
-        loss_list = []
-
-        for batch_idx, sample_batched in enumerate(data_loader_eval):
-            x_dev = sample_batched['feature'].to(device)
-            x_dev = torch.transpose(x_dev, 1, -1)
-            y_dev = sample_batched['label']
-            # y_train = y_train.to(dtype=torch.long)
-            y_dev = y_dev.to(device)
-            output_logits, output = net(x_dev)
-            preds = torch.argmax(output, dim=1)
-            loss = criterion(output_logits, y_dev)
-            logging_loss += loss.item() * y_dev.shape[0]
-            preds_list.append(preds.cpu().detach().numpy())
-            truths_list.append(y_dev.cpu().detach().numpy())
-        uar = recall_score(np.hstack(truths_list), np.hstack(preds_list), average='macro')
-        epoch_loss = logging_loss / len(data_loader_eval.dataset)
-        print('Loss: {:.4f} - UAR: {}'.format(epoch_loss, uar))
 
 
 def eval_model(data_loader, num_epochs):
