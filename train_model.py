@@ -102,9 +102,6 @@ def train_model(data_loader_train, data_loader_eval, num_epochs):
 
         train_logging_loss = 0.0
         val_logging_loss = 0.0
-        preds_list = []
-        truths_list = []
-        loss_list = []
 
         for batch_idx, sample_batched in enumerate(data_loader_train):
             x_train = sample_batched['feature'].to(device)
@@ -112,10 +109,12 @@ def train_model(data_loader_train, data_loader_eval, num_epochs):
             # print(x_train.shape)
             y_train = sample_batched['label'].to(device)
             y_train = y_train.to(dtype=torch.long)
+
             optimizer.zero_grad()  # zeroing the gradients
             output_logits, output = net(x_train)  # forward prop + backward prop + optimization
             loss = criterion(output_logits, y_train.unsqueeze(1).float())
             loss.backward()
+
             # stats
             train_logging_loss += loss.item() * y_train.shape[0]
             optimizer.step()  # updating weights
@@ -135,11 +134,13 @@ def train_model(data_loader_train, data_loader_eval, num_epochs):
             x_dev = torch.transpose(x_dev, 1, -1).unsqueeze(1)
             y_dev = sample_batched['label'].to(device)
             y_dev = y_dev.to(dtype=torch.long)
+
             output_logits, output = net(x_dev)
-            preds = torch.argmax(output, dim=1)
             loss = criterion(output_logits, y_dev.unsqueeze(1).float())
             val_logging_loss += loss.item() * y_dev.shape[0]
-            preds_list.append(preds.cpu().detach().numpy())
+            preds = output > 0.5
+
+            preds_list.append(preds.squeeze().cpu().detach().numpy())
             truths_list.append(y_dev.cpu().detach().numpy())
         uar = recall_score(np.hstack(truths_list), np.hstack(preds_list), average='macro')
         val_loss = val_logging_loss / len(data_loader_eval.dataset)
@@ -162,42 +163,5 @@ def train_model(data_loader_train, data_loader_eval, num_epochs):
     print('Best val Acc: {:4f}'.format(best_loss))
 
 
-
-def eval_model(data_loader, num_epochs):
-    since = time.time()
-    best_model_wts = copy.deepcopy(net.state_dict())
-    best_loss = 10.0
-
-    for epoch in range(num_epochs):
-        print('Epoch {}/{}'.format(epoch, num_epochs - 1))
-        print('-' * 10)
-
-        # set model to dev phase
-        net.eval()
-        logging_loss = 0.0
-        preds_list = []
-        truths_list = []
-        loss_list = []
-
-        for batch_idx, sample_batched in enumerate(data_loader):
-            x_dev = sample_batched['feature'].to(device)
-            x_dev = torch.transpose(x_dev, 1, -1)
-            y_dev = sample_batched['label']
-            # y_train = y_train.to(dtype=torch.long)
-            y_dev = y_dev.to(device)
-            output = net(x_dev)
-            loss = criterion(output, y_dev)
-            logging_loss += loss.item()
-            preds = torch.argmax(output, dim=1)
-            preds_list.append(preds.cpu().detach().numpy())
-            truths_list.append(y_dev.cpu().detach().numpy())
-        uar = recall_score(np.hstack(truths_list), np.hstack(preds_list), average='macro')
-        epoch_loss = logging_loss / len(data_loader.dataset)
-        print('Loss: {:.4f} - UAR: {}'.format(epoch_loss, uar / len(data_loader.dataset)))
-
-        return preds_list, truths_list
-
-
 if __name__ == '__main__':
     train_model(data_loader_train=train_dev_loader, data_loader_eval=test_loader, num_epochs=args.num_epochs)
-    # preds_list, truths_list = eval_model(data_loader=dev_loader, num_epochs=args.num_epochs)

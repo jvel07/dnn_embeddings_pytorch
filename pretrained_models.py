@@ -7,7 +7,7 @@ import time
 
 from sklearn.metrics import recall_score
 from torch.utils.data import DataLoader
-from torchvision.models import resnet101
+from torchvision.models import resnet101, resnet18
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -50,7 +50,6 @@ dev_set = CustomDataset(file_labels=args.labels, audio_dir=task_audio_dir, onlin
 dev_loader = DataLoader(dataset=dev_set, batch_size=args.batch_size, shuffle=False,
                         num_workers=0, drop_last=False, pin_memory=True)
 
-
 # Concatenating Datasets for training with Train and Dev
 train_dev_sets = torch.utils.data.ConcatDataset([train_set, dev_set])
 train_dev_loader = DataLoader(dataset=train_dev_sets, batch_size=args.batch_size, shuffle=False, num_workers=0,
@@ -69,7 +68,9 @@ test_loader = DataLoader(dataset=test_set, batch_size=args.batch_size, shuffle=F
 # Defining the pretrained model
 def use_resnet(net_output, binary_class=False):
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    resnet_model = resnet101(pretrained=True)
+    resnet_model = resnet18(pretrained=True)
+    # num_ftrs = resnet_model.fc.in_features
+
     # freeze pretrained layers
     for param in resnet_model.parameters():
         param.requires_grad = False
@@ -78,12 +79,13 @@ def use_resnet(net_output, binary_class=False):
     # redefine/adapt final fc layer
     if binary_class:
         net_output = 1
-        resnet_model.out = nn.Sequential(nn.Linear(2048, 512),
-                                         nn.ReLU(),
-                                         nn.Dropout(0.3),
-                                         nn.Linear(512, net_output),
-                                         nn.Sigmoid()
-                                         )
+        resnet_model.fc = nn.Linear(512, net_output)
+        # resnet_model.out = nn.Sequential(nn.Linear(2048, 512),
+        #                                  nn.ReLU(),
+        #                                  nn.Dropout(0.3),
+        #                                  nn.Linear(512, net_output),
+        #                                  nn.Sigmoid()
+                                         # )
         # Optimizer and scheduler
         optimizer = torch.optim.Adam(resnet_model.parameters(), lr=args.base_LR)
         criterion = nn.BCEWithLogitsLoss()
@@ -104,9 +106,9 @@ def use_resnet(net_output, binary_class=False):
 
 
 # Train model
-def train_model(_train_loader, num_epochs):
+def train_model(train_data_loader, eval_data_loader, num_epochs):
     # Instantiating resnet
-    net, device, optimizer, criterion = use_resnet(args.net_output)
+    net, device, optimizer, criterion = use_resnet(args.net_output, True)
     # or load the resnet re-trained on customized data
     # code for loading pending...
 
@@ -116,7 +118,7 @@ def train_model(_train_loader, num_epochs):
                                                               cycle_momentum=False,
                                                               div_factor=5,
                                                               final_div_factor=1e+3,
-                                                              total_steps=args.num_epochs * len(_train_loader),
+                                                              total_steps=args.num_epochs * len(train_data_loader),
                                                               pct_start=0.15)
 
     best_loss = 10
@@ -126,72 +128,67 @@ def train_model(_train_loader, num_epochs):
         print('Epoch {}/{}'.format(epoch, num_epochs - 1))
 
         net.train()  # set model to train phase
-        logging_loss = 0.0
+        train_logging_loss = 0.0
         resnet_train_losses = []
         preds_list = []
         truths_list = []
         batch_losses = []
 
-        for batch_idx, sample_batched in enumerate(_train_loader):
+        for batch_idx, sample_batched in enumerate(train_data_loader):
             batch_losses = []
-            x_train = sample_batched['feature'].to(device).unsqueeze(1)#.squeeze()
-            # x_train = torch.transpose(x_train, 1, -1)#.unsqueeze(1)
+            x_train = sample_batched['feature'].to(device).unsqueeze(1)  # .squeeze()
+            # x_train = torch.transpose(x_train, 1, -1).unsqueeze(1)
             y_train = sample_batched['label'].to(device)
+            # print(x_train.shape)
+
+            # forward prop + backward prop + optimization
             optimizer.zero_grad()
-            output = net(x_train)  # forward prop + backward prop + optimization
-            loss = criterion(output, y_train)
+            output = net(x_train)
+
+            loss = criterion(output, y_train.unsqueeze(1).float())
             loss.backward()
-            batch_losses.append(loss.item())  # stats
             optimizer.step()  # updating weights
-        resnet_train_losses.append(batch_losses)
+
+            # stats
+            train_logging_loss += loss.item() * y_train.shape[0]
+
         cyclic_lr_scheduler.step()
-        uar = recall_score(truths_list, preds_list, average='macro')
-        epoch_loss = logging_loss / len(_train_loader.dataset)
-        print(f'Epoch - {epoch} / {num_epochs-1} Train-Loss : {np.mean(resnet_train_losses[-1])} '
-              f'UAR: {uar} - epoch-loss: {epoch_loss}')
-        if epoch_loss < best_loss:
-            best_loss = epoch_loss
-            # best_model_wts = copy.deepcopy(net.state_dict())
-            # Save checkpoint
-            torch.save({
-                'epoch': epoch,
-                'model_state_dict': net.state_dict(),
-                'optimizer_state_dict': optimizer.state_dict(),
-                'loss': best_loss,
-            }, '{}/models/checkpoint_{}'.format(args.model_out_dir, epoch))
+        train_epoch_loss = train_logging_loss / len(train_data_loader.dataset)
+        print('Loss: {:.4f}'.format(train_epoch_loss))
 
+        # print(f'Epoch - {epoch} / {num_epochs-1} Train-Loss : {np.mean(resnet_train_losses[-1])} '
+        #       f'UAR: {uar} - epoch-loss: {epoch_loss}')
 
-def eval_model(_dev_loader, num_epochs):
-
-    for epoch in range(num_epochs):
-        print('-' * 10)
-        print('Epoch {}/{}'.format(epoch, num_epochs - 1))
-
-        resnet_valid_losses = []
-        # net.eval()  # set model to eval phase
-        batch_losses = []
+        # EVALUATION: set model to dev phase
+        net.eval()
         preds_list = []
         truths_list = []
-        for batch_idx, sample_batched in enumerate(_dev_loader):
-            x_dev = sample_batched['feature'].to(device)
-            # x_dev = torch.transpose(x_dev, 1, -1)#.unsqueeze(1)
+        val_logging_loss = 0.0
+
+        for batch_idx, sample_batched in enumerate(eval_data_loader):
+            x_dev = sample_batched['feature'].to(device).unsqueeze(1)
+            # x_dev = torch.transpose(x_dev, 1, -1).unsqueeze(1)
             y_dev = sample_batched['label'].to(device)
-            optimizer.zero_grad()
-            output = net(x_dev)  # forward prop + backward prop + optimization
-            preds = torch.argmax(output, dim=1)
-            preds_list.append(preds.cpu().detach().numpy())
+            y_dev = y_dev.to(dtype=torch.long)
+
+            output = net(x_dev)
+            loss = criterion(output, y_dev.unsqueeze(1).float())
+            val_logging_loss += loss.item() * y_dev.shape[0]
+
+            # getting probs
+            # m = nn.Sigmoid()
+            # probs = m(output)
+            preds = output > 0.5
+            # print(y_dev)
+            # print(preds)
+
+            preds_list.append(preds.squeeze().cpu().detach().numpy())
             truths_list.append(y_dev.cpu().detach().numpy())
-            loss = criterion(output, y_dev)
-            batch_losses.append(loss.item())  # stats
-        resnet_valid_losses.append(batch_losses)
-        preds_list = np.concatenate(preds_list)
-        truths_list = np.concatenate(truths_list)
-        uar = recall_score(truths_list, preds_list, average='macro')
-        print(f'Epoch - {epoch} Valid-Loss : {np.mean(resnet_valid_losses[-1])} Valid-Accuracy : {uar}')
+        uar = recall_score(np.hstack(truths_list), np.hstack(preds_list), average='macro')
+        val_loss = val_logging_loss / len(eval_data_loader.dataset)
+        print("Validation:")
+        print('Loss: {:.4f} - UAR: {}'.format(val_loss, uar))
 
 
 if __name__ == '__main__':
-    train_model(train_loader, 32)
-    # eval_model(dev_loader, 16)
-
-
+    train_model(train_dev_loader, test_loader, 32)
