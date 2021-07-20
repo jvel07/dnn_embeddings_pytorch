@@ -8,7 +8,7 @@ import configparser
 import pathlib
 import random
 
-import librosa
+#import librosa
 import os
 import numpy as np
 import pandas as pd
@@ -56,7 +56,7 @@ def load_wav(audio_filepath, sr, min_dur_sec):
 
 
 def load_wav_torch(audio_filepath, max_length_in_seconds, pad_and_truncate):
-    audio_tensor, sample_rate = torchaudio.load(audio_filepath, normalization=True)
+    audio_tensor, sample_rate = torchaudio.load(audio_filepath, normalize=True)
     max_length = sample_rate * max_length_in_seconds
     audio_size = audio_tensor.size()
 

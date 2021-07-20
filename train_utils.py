@@ -8,7 +8,7 @@ import os
 from datetime import datetime
 # from prettytable import PrettyTable
 
-import kaldi_python_io
+#import kaldi_python_io
 import numpy as np
 from torch import nn
 from torchvision import models
@@ -79,8 +79,8 @@ def get_train_params(task, flevel):
 
     parser.add_argument('-input_dim', action="store_true", default=40)
     parser.add_argument('-num_classes', action="store_true", default=2)
-    parser.add_argument('-batch_size', action="store_true", default=16)
-    parser.add_argument('-num_epochs', action="store_true", default=20)
+    parser.add_argument('-batch_size', action="store_true", default=32)
+    parser.add_argument('-num_epochs', action="store_true", default=100)
 
     parser.add_argument('-training_mode', default='init', help='(init) Train from scratch, (resume) Resume training, '
                                                                '(finetune) Finetune a pretrained model')

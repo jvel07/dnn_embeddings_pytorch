@@ -7,7 +7,7 @@ import sys
 
 from sklearn.metrics import recall_score
 
-sys.path.extend(['/home/jose/PycharmProjects/dnn_embeddings_pytorch'])
+sys.path.extend(['/home/jvel/PycharmProjects/dnn_embeddings_pytorch'])
 
 import argparse
 import copy
@@ -25,7 +25,8 @@ from CustomDataset import CustomDataset
 # task (name of the dataset)
 task = 'mask'
 # in and out dirs
-corpora_dir = '/media/jose/hk-data/PycharmProjects/the_speech/audio/'
+
+corpora_dir = '/media/jvel/data/audio/'
 out_dir = 'data/' + task
 task_audio_dir = corpora_dir + task + '/'
 # labels
@@ -93,7 +94,7 @@ cyclic_lr_scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer,
 
 
 # Train model
-def train_model(data_loader, num_epochs):
+def train_model(data_loader_train, data_loader_eval, num_epochs):
     since = time.time()
 
     best_model_wts = copy.deepcopy(net.state_dict())
@@ -111,7 +112,7 @@ def train_model(data_loader, num_epochs):
         truths_list = []
         loss_list = []
 
-        for batch_idx, sample_batched in enumerate(data_loader):
+        for batch_idx, sample_batched in enumerate(data_loader_train):
             x_train = sample_batched['feature'].to(device)
             x_train = torch.transpose(x_train, 1, -1).unsqueeze(1)
             # print(x_train.shape)
@@ -139,7 +140,7 @@ def train_model(data_loader, num_epochs):
             # loss_list.append(logging_loss / len(data_loader.dataset))
             cyclic_lr_scheduler.step()
         # uar = recall_score(np.hstack(truths_list), np.hstack(preds_list), average='macro')
-        epoch_loss = logging_loss / len(data_loader.dataset)
+        epoch_loss = logging_loss / len(data_loader_train.dataset)
         print('Loss: {:.4f}'.format(epoch_loss))
 
         if epoch_loss < best_loss:
@@ -174,7 +175,7 @@ def train_model(data_loader, num_epochs):
         truths_list = []
         loss_list = []
 
-        for batch_idx, sample_batched in enumerate(data_loader):
+        for batch_idx, sample_batched in enumerate(data_loader_eval):
             x_dev = sample_batched['feature'].to(device)
             x_dev = torch.transpose(x_dev, 1, -1)
             y_dev = sample_batched['label']
@@ -187,7 +188,7 @@ def train_model(data_loader, num_epochs):
             preds_list.append(preds.cpu().detach().numpy())
             truths_list.append(y_dev.cpu().detach().numpy())
         uar = recall_score(np.hstack(truths_list), np.hstack(preds_list), average='macro')
-        epoch_loss = logging_loss / len(data_loader.dataset)
+        epoch_loss = logging_loss / len(data_loader_eval.dataset)
         print('Loss: {:.4f} - UAR: {}'.format(epoch_loss, uar))
 
 
@@ -228,5 +229,5 @@ def eval_model(data_loader, num_epochs):
 
 
 if __name__ == '__main__':
-    train_model(data_loader=train_dev_loader, num_epochs=args.num_epochs)
+    train_model(data_loader_train=train_dev_loader, data_loader_eval=test_loader, num_epochs=args.num_epochs)
     # preds_list, truths_list = eval_model(data_loader=dev_loader, num_epochs=args.num_epochs)
