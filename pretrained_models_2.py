@@ -20,7 +20,7 @@ from CustomDataset import CustomDataset
 from feature_extraction import get_feats
 
 # task (name of the dataset)
-task = 'CovidSpeech'
+task = 'mask'
 # in and out dirs
 corpora_dir = '/media/jose/hk-data/PycharmProjects/the_speech/audio/'
 out_dir = 'data/' + task
@@ -146,7 +146,7 @@ def train_model(model, criterion, optimizer, num_epochs=25, is_inception=False):
 # fully connected layer. This last fully connected layer is replaced with a new one with random weights and only this
 # layer is trained.
 grad = True  # True: finetune the whole model; False: only update the reshaped layer params  (use it as feat. extractor)
-model_name = args.model_type
+model_name = 'resnet101'
 # Initialize the model
 net, input_size = train_utils.initialize_model(args.model_type, args.num_classes, grad, use_pretrained=True)
 

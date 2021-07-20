@@ -76,7 +76,7 @@ class xvecTDNN(nn.Module):
 
 # https://nbviewer.jupyter.org/github/IliaZenkov/transformer_cnn_parallel_audio_classification/blob/main/notebooks/Parallel_is_All_You_Want.ipynb#Conclusion
 class TransformerPrime(nn.Module):
-    def __init__(self, input_dim, num_classes, p_dropout):
+    def __init__(self, input_dim, net_output, p_dropout):
         super().__init__()
         ################ TRANSFORMER BLOCK #############################
         # maxpool the input feature map/tensor to the transformer
@@ -194,7 +194,7 @@ class TransformerPrime(nn.Module):
         # Full transformer block outputs 40*70 feature map, which we time-avg to dim 40 1D array
         # 512*2+40 == 1064 input features --> 8 output emotions
         # self.fc1_linear = nn.Linear(512 * 2 + 40, num_classes)
-        self.fc1_linear = nn.Linear(10024, 1)
+        self.fc1_linear = nn.Linear(424, net_output)
 
         ### Softmax layer for the 8 output logits from final FC linear layer
         # self.softmax_out = nn.Softmax(dim=1)  # dim==1 is the freq embedding
