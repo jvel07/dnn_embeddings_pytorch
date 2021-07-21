@@ -15,7 +15,7 @@ import torch.optim as optim
 import numpy as np
 
 import train_utils
-from CustomDataset import CustomDataset
+from CustomDataset import CustomAudioDataset
 from feature_extraction import get_feats
 
 # task (name of the dataset)
@@ -32,21 +32,21 @@ if not args.online and (args.feat_dir_train is None or args.feat_dir_dev is None
     parser.error("When -online=False, please specify -feat_dir_train and -feat_dir_dev.")
 
 # Loading the data
-train_set = CustomDataset(file_labels=args.labels, audio_dir=task_audio_dir, online=args.online,
-                          feats_fir=args.feats_dir_train, max_length_sec=1,
-                          calc_flevel=get_feats.FLevelFeatsTorch(save=True, out_dir=out_dir,
+train_set = CustomAudioDataset(file_labels=args.labels, audio_dir=task_audio_dir, online=args.online,
+                               feats_fir=args.feats_dir_train, max_length_sec=1,
+                               calc_flevel=get_feats.FLevelFeatsTorch(save=True, out_dir=out_dir,
                                                                  feat_type=args.feat_type,
                                                                  deltas=args.deltas, config_file=args.config_file)
-                          )
+                               )
 train_loader = DataLoader(dataset=train_set, batch_size=args.batch_size, shuffle=False,
                           num_workers=0, drop_last=False, pin_memory=True)
 
-dev_set = CustomDataset(file_labels=args.labels, audio_dir=task_audio_dir, online=args.online,
-                        feats_fir=args.feats_dir_dev, max_length_sec=1,
-                        calc_flevel=get_feats.FLevelFeatsTorch(save=True, out_dir=out_dir,
+dev_set = CustomAudioDataset(file_labels=args.labels, audio_dir=task_audio_dir, online=args.online,
+                             feats_fir=args.feats_dir_dev, max_length_sec=1,
+                             calc_flevel=get_feats.FLevelFeatsTorch(save=True, out_dir=out_dir,
                                                                feat_type=args.feat_type,
                                                                deltas=args.deltas, config_file=args.config_file)
-                        )
+                             )
 dev_loader = DataLoader(dataset=dev_set, batch_size=args.batch_size, shuffle=False,
                         num_workers=0, drop_last=False, pin_memory=True)
 
@@ -55,12 +55,12 @@ train_dev_sets = torch.utils.data.ConcatDataset([train_set, dev_set])
 train_dev_loader = DataLoader(dataset=train_dev_sets, batch_size=args.batch_size, shuffle=False, num_workers=0,
                               drop_last=False, pin_memory=True)
 
-test_set = CustomDataset(file_labels=args.labels, audio_dir=task_audio_dir, online=args.online,
-                         feats_fir=args.feats_dir_test, max_length_sec=1,
-                         calc_flevel=get_feats.FLevelFeatsTorch(save=True, out_dir=out_dir,
+test_set = CustomAudioDataset(file_labels=args.labels, audio_dir=task_audio_dir, online=args.online,
+                              feats_fir=args.feats_dir_test, max_length_sec=1,
+                              calc_flevel=get_feats.FLevelFeatsTorch(save=True, out_dir=out_dir,
                                                                 feat_type=args.feat_type,
                                                                 deltas=args.deltas, config_file=args.config_file)
-                         )
+                              )
 test_loader = DataLoader(dataset=test_set, batch_size=args.batch_size, shuffle=False,
                          num_workers=0, drop_last=False, pin_memory=True)
 

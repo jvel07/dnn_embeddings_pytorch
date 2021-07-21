@@ -5,6 +5,7 @@ on 2021. 01. 28. 13 40
 Class of type torch.utils.data.Dataset for loading the datset as per PyTorch
 """
 import os
+from abc import ABC
 
 import torchaudio
 from torch.utils.data import Dataset
@@ -14,10 +15,11 @@ import numpy as np
 import utils
 
 
-class CustomDataset(Dataset):
+class CustomAudioDataset(Dataset):
 
     def __init__(self, file_labels, audio_dir, max_length_sec, online=True, feats_fir=None, calc_flevel=None):
         """ Class to load a custom Dataset. Can be used as an input for the DataLoader.
+        This class is intended for loading audio data.
         Args:
             file_labels (string): Path to the csv file with the labels.
             audio_dir (string): Path to the WAV utterances.
@@ -71,4 +73,39 @@ class CustomDataset(Dataset):
         return sample
 
 
+class DementiaDataset(Dataset, ABC):
+    """ Class to load a custom Dataset. Can be used as an input for the DataLoader.
+    This class loads the transcriptions of the SZTE-DEMENTIA corpus.
+    Args:
+        transcriptions_dir (string): Path to the txt files containing the transcriptions.
+        file_labels (string): Path to the csv file with the labels.
+        tokenizer (Tokenizer Class from HF): Tokenizer instantiated object.
+        max_len (int): Maximum length in number of tokens (words).
+    :return dictionary {
+    """
+    def __init__(self, transcriptions_dir, file_labels, tokenizer, max_len):
+        self.transcriptions_dir = transcriptions_dir
+        self.list_trans_files = utils.get_files_abspaths(path=transcriptions_dir, file_type='.lab')
+        self.labels = utils.load_labels_alone(file_labels)
+        self.tokenizer = tokenizer
+        self.max_len = max_len
+
+    def __len__(self):
+        return len(self.list_trans_files)
+
+    def __getitem__(self, item):
+        transcription_file = self.list_trans_files[item]
+        transcription_text = utils.load_and_process_trans(transcription_file, tokens_to_exclude=['[EE]'],
+                                                          lower_case=True)
+        label = self.labels[item]
+
+        encoding = self.tokenizer.encode_plus(
+            review,
+            add_special_tokens=True,
+            max_length=self.max_len,
+            return_token_type_ids=False,
+            pad_to_max_length=True,
+            return_attention_mask=True,
+            return_tensors='pt',
+        )
 

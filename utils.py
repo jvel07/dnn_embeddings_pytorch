@@ -8,7 +8,7 @@ import configparser
 import pathlib
 import random
 
-#import librosa
+# import librosa
 import os
 import numpy as np
 import pandas as pd
@@ -52,7 +52,7 @@ def load_wav(audio_filepath, sr, min_dur_sec):
 
     extended_wav = torch.from_numpy(extended_wav)
     return extended_wav.reshape(1, -1)  # reshaping to (channel, samples) as
-                                        # needed in https://pytorch.org/audio/stable/compliance.kaldi.html
+    # needed in https://pytorch.org/audio/stable/compliance.kaldi.html
 
 
 def load_wav_torch(audio_filepath, max_length_in_seconds, pad_and_truncate):
@@ -126,7 +126,7 @@ def load_labels(labels_dir, name_set):
     """
 
     # df = pd.read_csv(filepath+'/{}_orig.csv'.format(name_set), delimiter=',')
-    df = pd.read_csv(labels_dir+'/labels.csv', delimiter=',')
+    df = pd.read_csv(labels_dir + '/labels.csv', delimiter=',')
     df['label'] = df['label'].astype('category')
     df['cat_lbl'] = df['label'].cat.codes
     df_labels = df[df['filename'].str.match(name_set)]
@@ -136,7 +136,25 @@ def load_labels(labels_dir, name_set):
     # labels = torch.from_numpy(np.asarray(labels).astype('int64'))
     # labels_hot = torch.nn.functional.one_hot(labels)
 
-    return labels#, df_labels.file_name.values
+    return labels  # , df_labels.file_name.values
+
+
+def load_labels_alone(labels_dir):
+    """
+    Loads labels from a file of containing the form, e.g.:
+                                        file_name,label
+                                        train_0001.wav,7
+    Args:
+        labels_dir (string): Path to the folder containing the labels file.
+    :return object
+    """
+
+    df = pd.read_csv(labels_dir + '/labels.csv', delimiter=',')
+    df['label'] = df['label'].astype('category')
+    df['cat_lbl'] = df['label'].cat.codes
+    labels = df.cat_lbl.values
+
+    return labels
 
 
 def save_features(out_dir, feat_type, wav_file, features):
@@ -238,4 +256,35 @@ def linear_trans_preds_test(y_train, preds_dev, preds_test):
 
     return preds_test_new
 
+
 # END of linear transformation for predictions (see sleepiness paper) ##
+
+
+# utils for DEMENTIA SZTE DATASET ###
+
+def load_and_process_trans(file_path, tokens_to_exclude, lower_case=True):
+
+    df = pd.read_csv(file_path, sep='\n', header=None, encoding='unicode_escape')
+    df.columns = ['token']
+
+    indices_to_exclude = []
+    for i in tokens_to_exclude:
+        indices = df.index[df['token'] == i].tolist()
+        indices_to_exclude.append(indices)
+
+    no_marks_df = df.drop(df.index[list(np.concatenate(indices_to_exclude))])
+    serialized_df = no_marks_df.squeeze()
+    if lower_case:
+        serialized_df = serialized_df.str.lower()
+        final_transcription = serialized_df.str.cat(sep=" ")
+    else:
+        final_transcription = serialized_df.str.cat(sep=" ")
+
+    return final_transcription
+
+
+def replace_tokens(df, original_tokens, new_tokens):
+    df = df.replace(to_replace=original_tokens, value=new_tokens)
+
+
+# utils for DEMENTIA SZTE DATASET ###

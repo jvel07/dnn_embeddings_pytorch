@@ -19,7 +19,7 @@ from torch.utils.data import DataLoader
 
 from feature_extraction import get_feats
 import train_utils
-from CustomDataset import CustomDataset
+from CustomDataset import CustomAudioDataset
 
 # task (name of the dataset)
 task = 'sleepiness'
@@ -70,21 +70,21 @@ if not args.online and (args.feat_dir_train is None or args.feat_dir_dev is None
     parser.error("When -online=False, please specify -feat_dir_train adn -feat_dir_dev.")
 
 # Loading the data
-train_set = CustomDataset(file_labels=args.labels, audio_dir=task_audio_dir, online=args.online,
-                          feats_fir=args.feats_dir_train,
-                          calc_flevel=get_feats.FLevelFeatsTorch(save=True, out_dir=out_dir,
+train_set = CustomAudioDataset(file_labels=args.labels, audio_dir=task_audio_dir, online=args.online,
+                               feats_fir=args.feats_dir_train,
+                               calc_flevel=get_feats.FLevelFeatsTorch(save=True, out_dir=out_dir,
                                                                  feat_type=args.feat_type,
                                                                  deltas=args.deltas, config_file=args.config_file)
-                          )
+                               )
 train_loader = DataLoader(dataset=train_set, batch_size=args.batch_size, shuffle=False,
                           num_workers=0, drop_last=False, pin_memory=True)
 
-dev_set = CustomDataset(file_labels=args.labels, audio_dir=task_audio_dir, online=args.online,
-                        feats_fir=args.feats_dir_dev,
-                        calc_flevel=get_feats.FLevelFeatsTorch(save=True, out_dir=out_dir,
+dev_set = CustomAudioDataset(file_labels=args.labels, audio_dir=task_audio_dir, online=args.online,
+                             feats_fir=args.feats_dir_dev,
+                             calc_flevel=get_feats.FLevelFeatsTorch(save=True, out_dir=out_dir,
                                                                feat_type=args.feat_type,
                                                                deltas=args.deltas, config_file=args.config_file)
-                        )
+                             )
 dev_loader = DataLoader(dataset=dev_set, batch_size=args.batch_size, shuffle=False,
                         num_workers=0, drop_last=False, pin_memory=True)
 
