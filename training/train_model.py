@@ -1,32 +1,36 @@
 """
 Created by José Vicente Egas López
-on 2021. 03. 03. 16 54
+on 2021. 02. 04. 13 10
 
 """
-import time
+import sys
 
 from sklearn.metrics import recall_score
-from torch.utils.data import DataLoader
-from torchvision.models import resnet101, resnet18
-import torch
-import torch.nn as nn
-import torch.optim as optim
 
+sys.path.extend(['/home/jose/PycharmProjects/dnn_embeddings_pytorch'])
+
+import time
 import numpy as np
 
+import torch
+import torch.nn as nn
+from torch.utils.data import DataLoader
+
+from feature_extraction import get_feats
 import train_utils
 from CustomDataset import CustomAudioDataset
-from feature_extraction import get_feats
 
 # task (name of the dataset)
-task = 'mask'
+task = 'sleepiness'
 # in and out dirs
-corpora_dir = '/media/jose/hk-data/PycharmProjects/the_speech/audio/'
+corpora_dir = '/media/jvel/data/audio/'
 out_dir = 'data/' + task
 task_audio_dir = corpora_dir + task + '/'
+# labels
+labels = 'data/{}/labels/labels.csv'.format(task)
 
-# Get params
-parser = train_utils.get_train_params(task, 'mfcc')
+# Get model params
+parser = train_utils.get_train_params(task=task, flevel='mfcc')
 args = parser.parse_args()
 if not args.online and (args.feat_dir_train is None or args.feat_dir_dev is None):
     parser.error("When -online=False, please specify -feat_dir_train and -feat_dir_dev.")
@@ -65,130 +69,97 @@ test_loader = DataLoader(dataset=test_set, batch_size=args.batch_size, shuffle=F
                          num_workers=0, drop_last=False, pin_memory=True)
 
 
-# Defining the pretrained model
-def use_resnet(net_output, binary_class=False):
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    resnet_model = resnet18(pretrained=True)
-    # num_ftrs = resnet_model.fc.in_features
-
-    # freeze pretrained layers
-    for param in resnet_model.parameters():
-        param.requires_grad = False
-    # adapting number of channels from 3 (originally) to 1
-    resnet_model.conv1 = nn.Conv2d(1, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False)
-    # redefine/adapt final fc layer
-    if binary_class:
-        net_output = 1
-        resnet_model.fc = nn.Linear(512, net_output)
-        # resnet_model.out = nn.Sequential(nn.Linear(2048, 512),
-        #                                  nn.ReLU(),
-        #                                  nn.Dropout(0.3),
-        #                                  nn.Linear(512, net_output),
-        #                                  nn.Sigmoid()
-                                         # )
-        # Optimizer and scheduler
-        optimizer = torch.optim.Adam(resnet_model.parameters(), lr=args.base_LR)
-        criterion = nn.BCEWithLogitsLoss()
-    else:
-        resnet_model.out = nn.Sequential(nn.Linear(2048, 512),
-                                         nn.ReLU(),
-                                         nn.Dropout(0.3),
-                                         nn.Linear(512, net_output),
-                                         nn.Softmax(dim=1)
-                                         )
-        # Optimizer and scheduler
-        optimizer = torch.optim.Adam(resnet_model.parameters(), lr=args.base_LR)
-        criterion = nn.CrossEntropyLoss()
-
-    resnet_model = resnet_model.to(device)
-
-    return resnet_model, device, optimizer, criterion
-
+# Decay LR by a factor of 0.1 every 7 epochs
+# cyclic_lr_scheduler = lr_scheduler.StepLR(optimizer, step_size=7, gamma=0.1)
 
 # Train model
-def train_model(train_data_loader, eval_data_loader, num_epochs):
-    # Instantiating resnet
-    net, device, optimizer, criterion = use_resnet(args.net_output, True)
-    # or load the resnet re-trained on customized data
-    # code for loading pending...
-
+def train_model(data_loader_train, data_loader_eval, num_epochs):
+    since = time.time()
+    # Set the GPU
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    # prepare the model
+    net, optimizer, epoch_n, save_dir, loss = train_utils.prepare_model(args)
+    criterion = nn.BCEWithLogitsLoss()
     # LR scheduler
     cyclic_lr_scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer,
                                                               max_lr=args.max_LR,
                                                               cycle_momentum=False,
                                                               div_factor=5,
                                                               final_div_factor=1e+3,
-                                                              total_steps=args.num_epochs * len(train_data_loader),
+                                                              total_steps=args.num_epochs * len(data_loader_train),
+                                                              # * numBatchesPerArk,
                                                               pct_start=0.15)
-
-    best_loss = 10
+    best_loss = loss
+    num_epochs = num_epochs - epoch_n  # validating number of epochs when resume training
 
     for epoch in range(num_epochs):
+        # set model to train phase
+        net.train()
         print('-' * 10)
         print('Epoch {}/{}'.format(epoch, num_epochs - 1))
 
-        net.train()  # set model to train phase
         train_logging_loss = 0.0
-        resnet_train_losses = []
-        preds_list = []
-        truths_list = []
-        batch_losses = []
+        val_logging_loss = 0.0
 
-        for batch_idx, sample_batched in enumerate(train_data_loader):
-            batch_losses = []
-            x_train = sample_batched['feature'].to(device).unsqueeze(1)  # .squeeze()
-            # x_train = torch.transpose(x_train, 1, -1).unsqueeze(1)
-            y_train = sample_batched['label'].to(device)
+        for batch_idx, sample_batched in enumerate(data_loader_train):
+            x_train = sample_batched['feature'].to(device)
+            x_train = torch.transpose(x_train, 1, -1).unsqueeze(1)
             # print(x_train.shape)
+            y_train = sample_batched['label'].to(device)
+            y_train = y_train.to(dtype=torch.long)
 
-            # forward prop + backward prop + optimization
-            optimizer.zero_grad()
-            output = net(x_train)
-
-            loss = criterion(output, y_train.unsqueeze(1).float())
+            optimizer.zero_grad()  # zeroing the gradients
+            output_logits, output = net(x_train)  # forward prop + backward prop + optimization
+            loss = criterion(output_logits, y_train.unsqueeze(1).float())
             loss.backward()
-            optimizer.step()  # updating weights
 
             # stats
             train_logging_loss += loss.item() * y_train.shape[0]
+            optimizer.step()  # updating weights
 
-        cyclic_lr_scheduler.step()
-        train_epoch_loss = train_logging_loss / len(train_data_loader.dataset)
+            cyclic_lr_scheduler.step()
+        # uar = recall_score(np.hstack(truths_list), np.hstack(preds_list), average='macro')
+        train_epoch_loss = train_logging_loss / len(data_loader_train.dataset)
         print('Loss: {:.4f}'.format(train_epoch_loss))
-
-        # print(f'Epoch - {epoch} / {num_epochs-1} Train-Loss : {np.mean(resnet_train_losses[-1])} '
-        #       f'UAR: {uar} - epoch-loss: {epoch_loss}')
 
         # EVALUATION: set model to dev phase
         net.eval()
         preds_list = []
         truths_list = []
-        val_logging_loss = 0.0
 
-        for batch_idx, sample_batched in enumerate(eval_data_loader):
-            x_dev = sample_batched['feature'].to(device).unsqueeze(1)
-            # x_dev = torch.transpose(x_dev, 1, -1).unsqueeze(1)
+        for batch_idx, sample_batched in enumerate(data_loader_eval):
+            x_dev = sample_batched['feature'].to(device)
+            x_dev = torch.transpose(x_dev, 1, -1).unsqueeze(1)
             y_dev = sample_batched['label'].to(device)
             y_dev = y_dev.to(dtype=torch.long)
 
-            output = net(x_dev)
-            loss = criterion(output, y_dev.unsqueeze(1).float())
+            output_logits, output = net(x_dev)
+            loss = criterion(output_logits, y_dev.unsqueeze(1).float())
             val_logging_loss += loss.item() * y_dev.shape[0]
-
-            # getting probs
-            # m = nn.Sigmoid()
-            # probs = m(output)
             preds = output > 0.5
-            # print(y_dev)
-            # print(preds)
 
             preds_list.append(preds.squeeze().cpu().detach().numpy())
             truths_list.append(y_dev.cpu().detach().numpy())
         uar = recall_score(np.hstack(truths_list), np.hstack(preds_list), average='macro')
-        val_loss = val_logging_loss / len(eval_data_loader.dataset)
+        val_loss = val_logging_loss / len(data_loader_eval.dataset)
         print("Validation:")
         print('Loss: {:.4f} - UAR: {}'.format(val_loss, uar))
 
+        if val_loss < best_loss:
+            best_loss = val_loss
+            # best_model_wts = copy.deepcopy(net.state_dict())
+            # Save checkpoint
+            torch.save({
+                'epoch': epoch,
+                'state_dict': net.state_dict(),
+                'optimizer': optimizer.state_dict(),
+                'loss': best_loss,
+            }, '{}/checkpoint_{}'.format(save_dir, epoch))
+
+    time_elapsed = time.time() - since
+    print('Training complete in {:.0f}m {:.0f}s'.format(time_elapsed // 60, time_elapsed % 60))
+    print('Best val Acc: {:4f}'.format(best_loss))
+
 
 if __name__ == '__main__':
-    train_model(train_dev_loader, test_loader, 32)
+    train_model(data_loader_train=train_dev_loader, data_loader_eval=test_loader, num_epochs=args.num_epochs)

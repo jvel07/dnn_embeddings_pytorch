@@ -6,14 +6,10 @@ on 2021. 03. 03. 16 54
 import copy
 import time
 
-from sklearn.metrics import recall_score
 from torch.utils.data import DataLoader
-from torchvision.models import resnet101
 import torch
 import torch.nn
 import torch.optim as optim
-
-import numpy as np
 
 import train_utils
 from CustomDataset import CustomAudioDataset

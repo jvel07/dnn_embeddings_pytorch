@@ -14,7 +14,7 @@ import torch.nn as nn
 import numpy as np
 
 from feature_extraction import get_feats
-import train_utils
+from training import train_utils
 from CustomDataset import CustomAudioDataset
 
 # task (name of the dataset)

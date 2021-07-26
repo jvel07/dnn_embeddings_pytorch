@@ -5,8 +5,6 @@ on 2021. 02. 04. 13 10
 """
 import sys
 
-from sklearn.metrics import recall_score
-
 sys.path.extend(['/home/jose/PycharmProjects/dnn_embeddings_pytorch'])
 
 import argparse

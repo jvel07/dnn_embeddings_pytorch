@@ -7,6 +7,7 @@ Class of type torch.utils.data.Dataset for loading the datset as per PyTorch
 import os
 from abc import ABC
 
+import torch
 import torchaudio
 from torch.utils.data import Dataset
 import pandas as pd
@@ -81,26 +82,27 @@ class DementiaDataset(Dataset, ABC):
         file_labels (string): Path to the csv file with the labels.
         tokenizer (Tokenizer Class from HF): Tokenizer instantiated object.
         max_len (int): Maximum length in number of tokens (words).
+        tokens_to_exclude (List): List of the tokens to be removed from the transcription. E.g.: "[SIL]"
     :return dictionary {
     """
-    def __init__(self, transcriptions_dir, file_labels, tokenizer, max_len):
+    def __init__(self, transcriptions_dir, file_labels, tokenizer, max_len, tokens_to_exclude):
         self.transcriptions_dir = transcriptions_dir
         self.list_trans_files = utils.get_files_abspaths(path=transcriptions_dir, file_type='.lab')
         self.labels = utils.load_labels_alone(file_labels)
         self.tokenizer = tokenizer
         self.max_len = max_len
+        self.tokens_to_exclude = tokens_to_exclude
 
     def __len__(self):
         return len(self.list_trans_files)
 
     def __getitem__(self, item):
         transcription_file = self.list_trans_files[item]
-        transcription_text = utils.load_and_process_trans(transcription_file, tokens_to_exclude=['[EE]'],
+        transcription_text = utils.load_and_process_trans(transcription_file, tokens_to_exclude=self.tokens_to_exclude,
                                                           lower_case=True)
         label = self.labels[item]
-
         encoding = self.tokenizer.encode_plus(
-            review,
+            transcription_text,
             add_special_tokens=True,
             max_length=self.max_len,
             return_token_type_ids=False,
@@ -108,4 +110,11 @@ class DementiaDataset(Dataset, ABC):
             return_attention_mask=True,
             return_tensors='pt',
         )
+
+        return {
+            'transcription': transcription_text,
+            'input_ids': encoding['input_ids'].flatten(),
+            'attention_mask': encoding['attention_mask'].flatten(),
+            'label': torch.tensor(label, dtype=torch.long)
+        }
 
