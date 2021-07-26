@@ -79,16 +79,16 @@ class DementiaDataset(Dataset, ABC):
     This class loads the transcriptions of the SZTE-DEMENTIA corpus.
     Args:
         transcriptions_dir (string): Path to the txt files containing the transcriptions.
-        file_labels (string): Path to the csv file with the labels.
+        labels_dir (string): Path to the csv file with the labels.
         tokenizer (Tokenizer Class from HF): Tokenizer instantiated object.
         max_len (int): Maximum length in number of tokens (words).
         tokens_to_exclude (List): List of the tokens to be removed from the transcription. E.g.: "[SIL]"
     :return dictionary {
     """
-    def __init__(self, transcriptions_dir, file_labels, tokenizer, max_len, tokens_to_exclude):
+    def __init__(self, transcriptions_dir, labels_dir, tokenizer, max_len, tokens_to_exclude):
         self.transcriptions_dir = transcriptions_dir
-        self.list_trans_files = utils.get_files_abspaths(path=transcriptions_dir, file_type='.lab')
-        self.labels = utils.load_labels_alone(file_labels)
+        self.list_trans_files = utils.load_just_75(labels_path=labels_dir, transcriptions_path=transcriptions_dir)
+        self.labels, ids = utils.load_labels_alone(labels_dir)
         self.tokenizer = tokenizer
         self.max_len = max_len
         self.tokens_to_exclude = tokens_to_exclude

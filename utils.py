@@ -116,7 +116,7 @@ def read_conf_file(file_name, conf_section):
 
 def load_labels(labels_dir, name_set):
     """
-    Loads labels from a file of containing the form, e.g.:
+    Loads labels from a specific set ('name_set'), e.g.: train, from a file of containing the form, e.g.:
                                         file_name,label
                                         train_0001.wav,7
     Args:
@@ -141,7 +141,7 @@ def load_labels(labels_dir, name_set):
 
 def load_labels_alone(labels_dir):
     """
-    Loads labels from a file of containing the form, e.g.:
+    Loads all labels contained in a file of the form, e.g.:
                                         file_name,label
                                         train_0001.wav,7
     Args:
@@ -149,12 +149,13 @@ def load_labels_alone(labels_dir):
     :return object
     """
 
-    df = pd.read_csv(labels_dir + '/labels.csv', delimiter=',')
+    df = pd.read_csv(labels_dir + '/labels.csv', delimiter=',', dtype=str)
     df['label'] = df['label'].astype('category')
     df['cat_lbl'] = df['label'].cat.codes
     labels = df.cat_lbl.values
+    ids = df.filename.values
 
-    return labels
+    return labels, ids
 
 
 def save_features(out_dir, feat_type, wav_file, features):
@@ -262,6 +263,29 @@ def linear_trans_preds_test(y_train, preds_dev, preds_test):
 
 # utils for DEMENTIA SZTE DATASET ###
 
+def load_just_75(labels_path, transcriptions_path):
+    """
+    Function that compares the transcription list and loads only the existing 75 of the labels.
+    Args:
+        labels_path: Path to the folder containing the 'labels.csv' file. E.g: 'data/text/dementia94B/labels'
+        transcriptions_path: Path to the folder containing the transcription files. E.g.: 'data/text/dementia94B'
+
+    Returns:
+        List of occurrences.
+    """
+    labs, ids = load_labels_alone(labels_path)
+    list_trans_files = get_files_abspaths(path=transcriptions_path, file_type='.lab')
+    occurrences = []
+
+    for id in list_trans_files:
+        for id2 in ids:
+            if os.path.basename(id)[0:3] == id2:
+                occurrences.append(id)
+    occurrences.sort()
+
+    return occurrences
+
+
 def load_and_process_trans(file_path, tokens_to_exclude, lower_case=True):
 
     df = pd.read_csv(file_path, sep='\n', header=None, encoding='unicode_escape')
@@ -272,7 +296,13 @@ def load_and_process_trans(file_path, tokens_to_exclude, lower_case=True):
         indices = df.index[df['token'] == i].tolist()
         indices_to_exclude.append(indices)
 
-    no_marks_df = df.drop(df.index[list(np.concatenate(indices_to_exclude))])
+    # squeezing the list of lists
+    indices_to_exclude = list(np.concatenate(indices_to_exclude))
+    indices_to_exclude.sort()
+    indices_to_exclude = np.asarray(indices_to_exclude, dtype=int)
+
+    no_marks_df = df.drop(df.index[indices_to_exclude])
+
     serialized_df = no_marks_df.squeeze()
     if lower_case:
         serialized_df = serialized_df.str.lower()
