@@ -291,30 +291,42 @@ def load_and_process_trans(file_path, tokens_to_exclude, lower_case=True):
     df = pd.read_csv(file_path, sep='\n', header=None, encoding='unicode_escape')
     df.columns = ['token']
 
-    indices_to_exclude = []
-    for i in tokens_to_exclude:
-        indices = df.index[df['token'] == i].tolist()
-        indices_to_exclude.append(indices)
+    if tokens_to_exclude:
+        indices_to_exclude = []
+        for i in tokens_to_exclude:
+            indices = df.index[df['token'] == i].tolist()
+            indices_to_exclude.append(indices)
 
-    # squeezing the list of lists
-    indices_to_exclude = list(np.concatenate(indices_to_exclude))
-    indices_to_exclude.sort()
-    indices_to_exclude = np.asarray(indices_to_exclude, dtype=int)
+        # squeezing the list of lists
+        indices_to_exclude = list(np.concatenate(indices_to_exclude))
+        indices_to_exclude.sort()
+        indices_to_exclude = np.asarray(indices_to_exclude, dtype=int)
+        # dropping tokens from the original text
+        no_marks_df = df.drop(df.index[indices_to_exclude])
+        # serializing dataframe for lower-casing
+        serialized_df = no_marks_df.squeeze()
+        if lower_case:
+            serialized_df = serialized_df.str.lower()
+            final_transcription = serialized_df.str.cat(sep=" ")
+        else:
+            final_transcription = serialized_df.str.cat(sep=" ")
 
-    no_marks_df = df.drop(df.index[indices_to_exclude])
-
-    serialized_df = no_marks_df.squeeze()
-    if lower_case:
-        serialized_df = serialized_df.str.lower()
-        final_transcription = serialized_df.str.cat(sep=" ")
+        return final_transcription
     else:
-        final_transcription = serialized_df.str.cat(sep=" ")
+        # serializing dataframe for lower-casing
+        serialized_df = df.squeeze()
+        if lower_case:
+            serialized_df = serialized_df.str.lower()
+            final_transcription = serialized_df.str.cat(sep=" ")
+        else:
+            final_transcription = serialized_df.str.cat(sep=" ")
 
-    return final_transcription
+        return final_transcription
 
 
 def replace_tokens(df, original_tokens, new_tokens):
     df = df.replace(to_replace=original_tokens, value=new_tokens)
 
+    return df
 
 # utils for DEMENTIA SZTE DATASET ###

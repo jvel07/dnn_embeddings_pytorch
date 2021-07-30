@@ -54,7 +54,7 @@ class CustomAudioDataset(Dataset):
         max_length_sec = self.max_length_sec
 
         if self.online:
-            self.feats_info = None
+            # self.feats_info = None
             # waveform = utils.load_wav(wav_file, sr=16000, min_dur_sec=4)
             waveform = utils.load_wav_torch(wav_file, max_length_in_seconds=max_length_sec, pad_and_truncate=True)
             sample = {
@@ -83,15 +83,17 @@ class DementiaDataset(Dataset, ABC):
         tokenizer (Tokenizer Class from HF): Tokenizer instantiated object.
         max_len (int): Maximum length in number of tokens (words).
         tokens_to_exclude (List): List of the tokens to be removed from the transcription. E.g.: "[SIL]"
+        calc_embeddings (callable, optional): Optional. Compute embeddings from the transcriptions using trasnformer models.
     :return dictionary {
     """
-    def __init__(self, transcriptions_dir, labels_dir, tokenizer, max_len, tokens_to_exclude):
+    def __init__(self, transcriptions_dir, labels_dir, tokenizer, max_len, tokens_to_exclude, calc_embeddings=None):
         self.transcriptions_dir = transcriptions_dir
         self.list_trans_files = utils.load_just_75(labels_path=labels_dir, transcriptions_path=transcriptions_dir)
         self.labels, ids = utils.load_labels_alone(labels_dir)
         self.tokenizer = tokenizer
         self.max_len = max_len
         self.tokens_to_exclude = tokens_to_exclude
+        self.calc_embeddings = calc_embeddings
 
     def __len__(self):
         return len(self.list_trans_files)
@@ -111,10 +113,16 @@ class DementiaDataset(Dataset, ABC):
             return_tensors='pt',
         )
 
-        return {
+        sample = {
             'transcription': transcription_text,
             'input_ids': encoding['input_ids'].flatten(),
             'attention_mask': encoding['attention_mask'].flatten(),
-            'label': torch.tensor(label, dtype=torch.long)
+            'label': torch.tensor(label, dtype=torch.long),
+            'transcription_id': os.path.basename(transcription_file)
         }
+
+        if self.calc_embeddings:
+            sample = self.calc_embeddings(sample, os.path.basename(transcription_file))
+
+        return sample
 

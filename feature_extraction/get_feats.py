@@ -10,6 +10,7 @@ import os
 import torch
 import torchaudio
 import numpy as np
+from transformers import pipeline
 
 import utils
 from feature_extraction.fisher_helper import *
@@ -238,3 +239,35 @@ class FisherVectors(object):
 
         # extract Fisher vectors
         # fish = extract_fishers(feature)
+
+
+class ExtractTransformersEmbeddings(object):
+    """
+    Class to extract embeddings from pre-trained transformers like BERT. Only designed for
+    passing HuggingFace models.
+    Args:
+        model_name (string): Name of the HuggingFace model. E.g.: "bert-base-cased"
+        tokenizer_name (string): Name of the tokenizer. E.g.: "bert-base-cased"
+        out_dir (string): Path to the folder where to save the embeddings.
+    Returns:
+        Numpy array containing the embeddings of the text, and its corresponding label.
+    """
+    def __init__(self, model_name, tokenizer_name, out_dir):
+        self.model_name = model_name
+        self.tokenizer_name = tokenizer_name
+        self.out_dir = out_dir
+
+    def __call__(self, sample, file_name):
+        text, label = sample["transcription"], sample["label"]
+        classifier = pipeline(task='feature-extraction', model=self.model_name, tokenizer=self.tokenizer_name)
+        embeddings = np.asarray(classifier(text)).squeeze()
+
+        raw_name = os.path.splitext(file_name)[0]
+        final_dir = os.path.join(self.out_dir, self.model_name, "embeddings_{}.temb".format(raw_name))
+        if not os.path.isdir(os.path.dirname(final_dir)):
+            os.makedirs(os.path.dirname(final_dir))
+        np.savetxt(final_dir, embeddings)
+
+        feature = {"embeddings": embeddings, "label": label}
+
+        return feature
