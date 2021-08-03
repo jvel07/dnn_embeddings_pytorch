@@ -99,6 +99,7 @@ class DementiaDataset(Dataset, ABC):
         return len(self.list_trans_files)
 
     def __getitem__(self, item):
+        max_len = self.max_len
         transcription_file = self.list_trans_files[item]
         transcription_text = utils.load_and_process_trans(transcription_file, tokens_to_exclude=self.tokens_to_exclude,
                                                           lower_case=True)
@@ -110,8 +111,12 @@ class DementiaDataset(Dataset, ABC):
             return_token_type_ids=False,
             pad_to_max_length=True,
             return_attention_mask=True,
+            truncation=True,
             return_tensors='pt',
         )
+
+        # print(encoding['input_ids'].flatten().shape)
+        # print(encoding['input_ids'].shape)
 
         sample = {
             'transcription': transcription_text,
@@ -122,7 +127,7 @@ class DementiaDataset(Dataset, ABC):
         }
 
         if self.calc_embeddings:
-            sample = self.calc_embeddings(sample, os.path.basename(transcription_file))
+            sample = self.calc_embeddings(sample, max_len, os.path.basename(transcription_file))
 
         return sample
 

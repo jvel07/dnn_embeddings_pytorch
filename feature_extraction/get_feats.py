@@ -246,24 +246,26 @@ class ExtractTransformersEmbeddings(object):
     Class to extract embeddings from pre-trained transformers like BERT. Only designed for
     passing HuggingFace models.
     Args:
-        model_name (string): Name of the HuggingFace model. E.g.: "bert-base-cased"
-        tokenizer_name (string): Name of the tokenizer. E.g.: "bert-base-cased"
+        model_name (string): Name of the HuggingFace model (to be used for the tokenizer as well).
+                             E.g.: "bert-base-cased"
         out_dir (string): Path to the folder where to save the embeddings.
     Returns:
         Numpy array containing the embeddings of the text, and its corresponding label.
     """
-    def __init__(self, model_name, tokenizer_name, out_dir):
-        self.model_name = model_name
-        self.tokenizer_name = tokenizer_name
+    def __init__(self, model_name, out_dir):
         self.out_dir = out_dir
+        self.model_name = model_name
+        self.extractor = pipeline(task='feature-extraction', model=model_name, tokenizer=model_name)
 
-    def __call__(self, sample, file_name):
-        text, label = sample["transcription"], sample["label"]
-        classifier = pipeline(task='feature-extraction', model=self.model_name, tokenizer=self.tokenizer_name)
-        embeddings = np.asarray(classifier(text)).squeeze()
+    def __call__(self, sample, max_len, file_name):
+        text, label = sample['transcription'], sample['label']
+        extractor = self.extractor
+        embeddings = np.asarray(extractor(text, pad_to_max_length=True, max_length=max_len, truncation=True,
+                                          return_attention_mask=True)).squeeze()
+        print("Embeddings shape:", embeddings.shape)
 
         raw_name = os.path.splitext(file_name)[0]
-        final_dir = os.path.join(self.out_dir, self.model_name, "embeddings_{}.temb".format(raw_name))
+        final_dir = os.path.join(self.out_dir, self.extractor.model.config._name_or_path, "embeddings_{}.temb".format(raw_name))
         if not os.path.isdir(os.path.dirname(final_dir)):
             os.makedirs(os.path.dirname(final_dir))
         np.savetxt(final_dir, embeddings)

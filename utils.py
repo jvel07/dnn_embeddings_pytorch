@@ -287,7 +287,11 @@ def load_just_75(labels_path, transcriptions_path):
 
 
 def load_and_process_trans(file_path, tokens_to_exclude, lower_case=True):
+    """
+    Function to load and process the texts (transcriptions annotated for the SZTE-Dementia dataset)
+    Args:
 
+    """
     df = pd.read_csv(file_path, sep='\n', header=None, encoding='unicode_escape')
     df.columns = ['token']
 
