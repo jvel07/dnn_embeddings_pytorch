@@ -76,14 +76,15 @@ class CustomAudioDataset(Dataset):
 
 class DementiaDataset(Dataset, ABC):
     """ Class to load a custom Dataset. Can be used as an input for the DataLoader.
-    This class loads the transcriptions of the SZTE-DEMENTIA corpus.
+    This class loads (TEXT) the transcriptions of the SZTE-DEMENTIA corpus.
     Args:
         transcriptions_dir (string): Path to the txt files containing the transcriptions.
         labels_dir (string): Path to the csv file with the labels.
         tokenizer (Tokenizer Class from HF): Tokenizer instantiated object.
         max_len (int): Maximum length in number of tokens (words).
         tokens_to_exclude (List): List of the tokens to be removed from the transcription. E.g.: "[SIL]"
-        calc_embeddings (callable, optional): Optional. Compute embeddings from the transcriptions using trasnformer models.
+        calc_embeddings (callable, optional): Optional. Compute embeddings from the transcriptions using transformer
+            models.
     :return dictionary {
     """
     def __init__(self, transcriptions_dir, labels_dir, tokenizer, max_len, tokens_to_exclude, calc_embeddings=None):
@@ -115,7 +116,7 @@ class DementiaDataset(Dataset, ABC):
             return_tensors='pt',
         )
 
-        # print(encoding['input_ids'].flatten().shape)
+        print(encoding['input_ids'].flatten().shape)
         # print(encoding['input_ids'].shape)
 
         sample = {

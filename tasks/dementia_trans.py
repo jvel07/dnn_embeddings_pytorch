@@ -13,6 +13,7 @@ from torch.utils.data import DataLoader, ConcatDataset
 from sklearn.model_selection import KFold
 from transformers import pipeline
 
+import utils
 from CustomDataset import DementiaDataset
 from feature_extraction import get_feats
 
@@ -24,6 +25,8 @@ tokenizer = BertTokenizer.from_pretrained(pre_trained_model_name)
 model = BertModel.from_pretrained(pre_trained_model_name, return_dict=False)
 
 
+
+
 class_names = [1, 2, 3]
 # class_names = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
 # Load data
@@ -31,11 +34,11 @@ dataset = DementiaDataset(transcriptions_dir='../data/text/dementia94B/transcrip
                           labels_dir='../data/text/dementia94B/labels', tokenizer=tokenizer,
                           max_len=200, tokens_to_exclude=['[SIL]', '[EE]', '[MM]', '[OOO]',
                                                           '[BREATH]', '[AAA]', '[PAU]'],
-                          calc_embeddings=get_feats.ExtractTransformersEmbeddings(model_name=pre_trained_model_name,
-                                                                                  out_dir='../data/text/dementia94B/embeddings')
+                          # calc_embeddings=get_feats.ExtractTransformersEmbeddings(model_name=pre_trained_model_name,
+                          #                                                         out_dir='../data/text/dementia94B/embeddings')
                           )
 
-train_loader = DataLoader(dataset=dataset, batch_size=8, num_workers=0)
+# train_loader = DataLoader(dataset=dataset, batch_size=8, num_workers=0)
 
 # Splitting data for CV
 kfold = KFold(n_splits=10, shuffle=True)
@@ -43,8 +46,12 @@ for fold, (train_ids, test_ids) in enumerate(kfold.split(dataset)):
     train_subsampler = torch.utils.data.SubsetRandomSampler(train_ids)
     test_subsampler = torch.utils.data.SubsetRandomSampler(test_ids)
 
-    train_loader = DataLoader(dataset=dataset, batch_size=10, num_workers=0, sampler=train_subsampler)
-    test_loader = DataLoader(dataset=dataset, batch_size=10, num_workers=0, sampler=test_subsampler)
+    train_loader = DataLoader(dataset=dataset, batch_size=5, num_workers=0, sampler=train_subsampler,
+                              # collate_fn=utils.my_collate
+                              )
+    test_loader = DataLoader(dataset=dataset, batch_size=5, num_workers=0, sampler=test_subsampler,
+                             # collate_fn=utils.my_collate
+                             )
 
-for i, sample in enumerate(train_loader):
-    print(i, sample['transcription'], sample['label'])
+    for i, sample in enumerate(train_loader):
+        print(i, sample['transcription'], sample['label'])

@@ -17,6 +17,7 @@ from sklearn import preprocessing
 
 import torch
 import torchaudio
+from torch.nn.utils.rnn import pack_sequence
 
 
 def get_files_abspaths(path, file_type=None):
@@ -332,5 +333,21 @@ def replace_tokens(df, original_tokens, new_tokens):
     df = df.replace(to_replace=original_tokens, value=new_tokens)
 
     return df
+
+
+def my_collate(batch):
+    """
+    Function used to pad the sequences (text samples) so they have the same size.
+    Args:
+        batch: The batch containing the samples.
+
+    Returns:
+        paded data, labels
+    """
+    # batch contains a list of tuples of structure (sequence, target)
+    data = [item['embeddings'] for item in batch]
+    data = pack_sequence(data, enforce_sorted=False)
+    targets = [item['label'] for item in batch]
+    return [data, targets]
 
 # utils for DEMENTIA SZTE DATASET ###

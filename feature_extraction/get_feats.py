@@ -260,8 +260,8 @@ class ExtractTransformersEmbeddings(object):
     def __call__(self, sample, max_len, file_name):
         text, label = sample['transcription'], sample['label']
         extractor = self.extractor
-        embeddings = np.asarray(extractor(text, pad_to_max_length=True, max_length=max_len, truncation=True,
-                                          return_attention_mask=True)).squeeze()
+        embeddings = np.asarray(extractor(text, padding=True, max_length=max_len, truncation=True,
+                                          return_attention_mask=True, return_tensors='pt')).squeeze()
         print("Embeddings shape:", embeddings.shape)
 
         raw_name = os.path.splitext(file_name)[0]
