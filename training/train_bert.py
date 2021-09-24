@@ -97,7 +97,7 @@ if __name__ == '__main__':
     # class_names = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
     # Load data
     dataset = DementiaDataset(transcriptions_dir='../data/text/dementia94B',
-                              labels_dir='../data/text/dementia94B/labels', tokenizer=tokenizer,
+                              labels_file='../data/text/dementia94B/labels/labels.csv', tokenizer=tokenizer,
                               max_len=250, tokens_to_exclude=['[SIL]', '[EE]', '[MM]', '[OOO]',
                                                               '[BREATH]', '[AAA]', '[PAU]'])
 

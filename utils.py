@@ -140,17 +140,17 @@ def load_labels(labels_dir, name_set):
     return labels  # , df_labels.file_name.values
 
 
-def load_labels_alone(labels_dir):
+def load_labels_alone(labels_file):
     """
     Loads all labels contained in a file of the form, e.g.:
                                         file_name,label
                                         train_0001.wav,7
     Args:
-        labels_dir (string): Path to the folder containing the labels file.
+        labels_file (string): Path to the folder containing the labels file.
     :return object
     """
 
-    df = pd.read_csv(labels_dir + '/labels.csv', delimiter=',', dtype=str)
+    df = pd.read_csv(labels_file, delimiter=',', dtype=str)
     df['label'] = df['label'].astype('category')
     df['cat_lbl'] = df['label'].cat.codes
     labels = df.cat_lbl.values
@@ -264,18 +264,18 @@ def linear_trans_preds_test(y_train, preds_dev, preds_test):
 
 # utils for DEMENTIA SZTE DATASET ###
 
-def load_just_75(labels_path, transcriptions_path):
+def load_just_75(labels_file, transcriptions_path):
     """
     Function that compares the transcription list and loads only the existing 75 of the labels.
     Args:
-        labels_path: Path to the folder containing the 'labels.csv' file. E.g: 'data/text/dementia94B/labels'
+        labels_file: Path to the folder containing the 'labels.csv' file.
         transcriptions_path: Path to the folder containing the transcription files. E.g.: 'data/text/dementia94B'
 
     Returns:
         List of occurrences.
     """
-    labs, ids = load_labels_alone(labels_path)
-    list_trans_files = get_files_abspaths(path=transcriptions_path, file_type='.lab')
+    labs, ids = load_labels_alone(labels_file)
+    list_trans_files = get_files_abspaths(path=transcriptions_path, file_type='.lab')  # ".lab" is the format provided
     occurrences = []
 
     for id in list_trans_files:

@@ -31,7 +31,7 @@ class_names = [1, 2, 3]
 # class_names = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
 # Load data
 dataset = DementiaDataset(transcriptions_dir='../data/text/dementia94B/transcriptions',
-                          labels_dir='../data/text/dementia94B/labels', tokenizer=tokenizer,
+                          labels_file='../data/text/dementia94B/labels/labels.csv', tokenizer=tokenizer,
                           max_len=200, tokens_to_exclude=['[SIL]', '[EE]', '[MM]', '[OOO]',
                                                           '[BREATH]', '[AAA]', '[PAU]'],
                           # calc_embeddings=get_feats.ExtractTransformersEmbeddings(model_name=pre_trained_model_name,

@@ -9,10 +9,8 @@ import os
 
 import torch
 import torchaudio
-import numpy as np
 from transformers import pipeline
 
-import utils
 from feature_extraction.fisher_helper import *
 
 
@@ -264,12 +262,12 @@ class ExtractTransformersEmbeddings(object):
                                           return_attention_mask=True, return_tensors='pt')).squeeze()
         print("Embeddings shape:", embeddings.shape)
 
+        # saving features/embeddings to disk
         raw_name = os.path.splitext(file_name)[0]
         final_dir = os.path.join(self.out_dir, self.extractor.model.config._name_or_path, "embeddings_{}.temb".format(raw_name))
         if not os.path.isdir(os.path.dirname(final_dir)):
             os.makedirs(os.path.dirname(final_dir))
         np.savetxt(final_dir, embeddings)
 
-        feature = {"embeddings": embeddings, "label": label}
-
+        feature = {'embeddings': embeddings, 'label': label}
         return feature
